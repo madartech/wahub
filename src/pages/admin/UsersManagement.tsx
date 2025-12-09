@@ -117,7 +117,7 @@ export default function UsersManagement() {
     if (!userToDelete) return;
     setIsSubmitting(true);
     try {
-      await userManagementService.deleteUser(userToDelete.id);
+      await userManagementService.deleteUser(userToDelete.username);
       setUsers(users.filter((u) => u.id !== userToDelete.id));
       toast.success(`User "${userToDelete.username}" deleted successfully`);
       setDeleteDialogOpen(false);
