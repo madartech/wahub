@@ -142,18 +142,20 @@ export const userManagementService = {
   },
 
   async createUser(username: string, password: string): Promise<User> {
-    await delay(500);
-    const newUser: User = {
-      id: Date.now().toString(),
-      username,
-      password,
-      status: 'active',
-      apiKey: `api_key_${Math.random().toString(36).substring(2, 15)}`,
-      messageCount: 0,
-      sessionStatus: 'offline',
-      createdAt: new Date(),
-    };
-    users.push(newUser);
+    const response = await fetch('http://localhost:3000/admin/create-user', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ username, password }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to create user');
+    }
+
+    const newUser = await response.json();
     return newUser;
   },
 
