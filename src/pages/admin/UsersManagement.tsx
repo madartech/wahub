@@ -58,14 +58,15 @@ export default function UsersManagement() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const newUser = await userManagementService.createUser(newUsername, newPassword);
-      setUsers([...users, newUser]);
+      await userManagementService.createUser(newUsername, newPassword);
       toast.success(`User "${newUsername}" created successfully`);
       setAddDialogOpen(false);
       setNewUsername('');
       setNewPassword('');
+      await fetchUsers();
     } catch (error) {
-      toast.error('Failed to create user');
+      const message = error instanceof Error ? error.message : 'Failed to create user';
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
