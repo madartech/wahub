@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loader2, RefreshCw, QrCode, CheckCircle } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function QRConnect() {
   const { user } = useAuth();
@@ -18,8 +19,14 @@ export default function QRConnect() {
     if (user?.apiKey) {
       setIsLoading(true);
       try {
-        const qr = await whatsappService.getQRCode(user.apiKey);
-        setQrCode(qr);
+        const response = await whatsappService.getQRCode(user.apiKey);
+        
+        if (response.status === 'already_connected') {
+          setIsConnected(true);
+          setQrCode(null);
+        } else if (response.qr) {
+          setQrCode(response.qr);
+        }
         
         // Check status
         const status = await whatsappService.getStatus(user.apiKey);
@@ -92,15 +99,11 @@ export default function QRConnect() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="aspect-square bg-muted rounded-lg flex items-center justify-center overflow-hidden">
+            <div className="aspect-square bg-white rounded-lg flex items-center justify-center overflow-hidden p-4">
               {isLoading ? (
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
               ) : qrCode ? (
-                <img
-                  src={qrCode}
-                  alt="WhatsApp QR Code"
-                  className="w-full h-full object-contain p-4"
-                />
+                <QRCodeSVG value={qrCode} size={256} level="M" />
               ) : (
                 <p className="text-muted-foreground">Failed to load QR code</p>
               )}

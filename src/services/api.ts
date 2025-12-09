@@ -204,10 +204,15 @@ export const whatsappService = {
     return user?.sessionStatus || 'offline';
   },
 
-  async getQRCode(apiKey: string): Promise<string> {
-    await delay(300);
-    // Return a placeholder QR code data URL
-    return `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=whatsapp-connect-${apiKey}`;
+  async getQRCode(apiKey: string): Promise<{ qr?: string; status?: string }> {
+    const response = await fetch(`http://localhost:3000/api/${apiKey}/qr`);
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to get QR code');
+    }
+
+    return await response.json();
   },
 
   async sendText(apiKey: string, payload: SendTextPayload): Promise<boolean> {
