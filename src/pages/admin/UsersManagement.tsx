@@ -85,12 +85,11 @@ export default function UsersManagement() {
   };
 
   const handleToggleStatus = async (user: User) => {
+    const newStatus = user.status === 'active' ? 'disabled' : 'active';
     try {
-      const updatedUser = await userManagementService.toggleUserStatus(user.id);
-      if (updatedUser) {
-        setUsers(users.map((u) => (u.id === user.id ? updatedUser : u)));
-        toast.success(`User "${user.username}" ${updatedUser.status === 'active' ? 'enabled' : 'disabled'}`);
-      }
+      await userManagementService.toggleUserStatus(user.username, newStatus);
+      setUsers(users.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u)));
+      toast.success(`User "${user.username}" ${newStatus === 'active' ? 'enabled' : 'disabled'}`);
     } catch (error) {
       toast.error('Failed to update user status');
     }
@@ -101,7 +100,7 @@ export default function UsersManagement() {
     if (!selectedUser) return;
     setIsSubmitting(true);
     try {
-      await userManagementService.resetPassword(selectedUser.id, resetPassword);
+      await userManagementService.resetPassword(selectedUser.username, resetPassword);
       toast.success(`Password reset for "${selectedUser.username}"`);
       setResetPasswordDialogOpen(false);
       setResetPassword('');
@@ -132,7 +131,7 @@ export default function UsersManagement() {
 
   const handleResetSession = async (user: User) => {
     try {
-      await userManagementService.resetSession(user.id);
+      await userManagementService.resetSession(user.apiKey || '');
       setUsers(users.map((u) => (u.id === user.id ? { ...u, sessionStatus: 'offline' as const } : u)));
       toast.success(`WhatsApp session reset for "${user.username}"`);
     } catch (error) {

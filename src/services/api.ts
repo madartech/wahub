@@ -121,6 +121,49 @@ export const userManagementService = {
 
     return true;
   },
+
+  async toggleUserStatus(username: string, newStatus: "active" | "disabled"): Promise<boolean> {
+    const response = await fetch(`${API_BASE_URL}/admin/toggle-user/${encodeURIComponent(username)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || "Failed to toggle user status");
+    }
+
+    return true;
+  },
+
+  async resetPassword(username: string, newPassword: string): Promise<boolean> {
+    const response = await fetch(`${API_BASE_URL}/admin/reset-password/${encodeURIComponent(username)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: newPassword }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || "Failed to reset password");
+    }
+
+    return true;
+  },
+
+  async resetSession(apiKey: string): Promise<boolean> {
+    const response = await fetch(`${API_BASE_URL}/api/${apiKey}/restart-session`, {
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || "Failed to reset session");
+    }
+
+    return true;
+  },
 };
 
 // ------------------------------
