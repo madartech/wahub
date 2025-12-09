@@ -1,4 +1,4 @@
-import { User, AuthUser, LoginCredentials, SendTextPayload, SendMediaPayload, SessionStatus } from '@/types';
+import { User, AuthUser, LoginCredentials, SendTextPayload, SendMediaPayload, SessionStatus, MessageHistory } from '@/types';
 
 // Fake data store
 let users: User[] = [
@@ -31,6 +31,50 @@ let users: User[] = [
     messageCount: 0,
     sessionStatus: 'offline',
     createdAt: new Date('2024-03-10'),
+  },
+];
+
+// Fake message history data
+const messageHistory: MessageHistory[] = [
+  {
+    id: '1',
+    recipientNumber: '+1234567890',
+    messageType: 'text',
+    content: 'Hello! This is a test message.',
+    timestamp: new Date('2024-03-15T10:30:00'),
+    status: 'delivered',
+  },
+  {
+    id: '2',
+    recipientNumber: '+1987654321',
+    messageType: 'image',
+    content: 'product_photo.jpg',
+    timestamp: new Date('2024-03-15T11:45:00'),
+    status: 'delivered',
+  },
+  {
+    id: '3',
+    recipientNumber: '+1555123456',
+    messageType: 'text',
+    content: 'Your order has been confirmed!',
+    timestamp: new Date('2024-03-15T14:20:00'),
+    status: 'sent',
+  },
+  {
+    id: '4',
+    recipientNumber: '+1444789012',
+    messageType: 'pdf',
+    content: 'invoice_march_2024.pdf',
+    timestamp: new Date('2024-03-15T16:00:00'),
+    status: 'pending',
+  },
+  {
+    id: '5',
+    recipientNumber: '+1333456789',
+    messageType: 'text',
+    content: 'Failed to deliver message',
+    timestamp: new Date('2024-03-14T09:15:00'),
+    status: 'failed',
   },
 ];
 
@@ -174,5 +218,13 @@ export const whatsappService = {
     await delay(800);
     console.log(`[API] Sending PDF to ${payload.number} with caption: ${payload.caption}`);
     return true;
+  },
+
+  async getMessageHistory(apiKey: string): Promise<MessageHistory[]> {
+    await delay(400);
+    console.log(`[API] Fetching message history for ${apiKey}`);
+    return [...messageHistory].sort((a, b) => 
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
   },
 };
