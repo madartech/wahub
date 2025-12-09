@@ -153,7 +153,15 @@ export const userManagementService = {
       throw new Error(errorData.error || errorData.message || 'Failed to fetch users');
     }
 
-    return await response.json();
+    const data = await response.json();
+    // Handle both array response and object with users property
+    if (Array.isArray(data)) {
+      return data;
+    }
+    if (data.users && Array.isArray(data.users)) {
+      return data.users;
+    }
+    return [];
   },
 
   async createUser(username: string, password: string): Promise<User> {
