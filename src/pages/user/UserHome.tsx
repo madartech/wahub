@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Copy, Key, Wifi, WifiOff, QrCode, Loader2, Check } from 'lucide-react';
+import { Copy, Key, Wifi, WifiOff, QrCode, Loader2, Check, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -19,12 +19,17 @@ export default function UserHome() {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [messageCount, setMessageCount] = useState<number>(0);
 
   const fetchStatus = useCallback(async () => {
     if (user?.apiKey) {
       try {
         const currentStatus = await whatsappService.getStatus(user.apiKey);
         setStatus(currentStatus);
+        
+        // Fetch message count
+        const count = await whatsappService.getMessageCount(user.apiKey);
+        setMessageCount(count);
         
         // Close modal if connected
         if (currentStatus === 'online' && qrModalOpen) {
@@ -108,7 +113,7 @@ export default function UserHome() {
           <p className="text-muted-foreground">Welcome back, {user?.username}</p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {/* API Key Card */}
           <Card>
             <CardHeader>
@@ -178,6 +183,36 @@ export default function UserHome() {
                       Connect WhatsApp
                     </Button>
                   )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Message Count Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="w-5 h-5" />
+                Messages Sent
+              </CardTitle>
+              <CardDescription>
+                Total messages sent via API
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <MessageSquare className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-3xl font-bold">{messageCount.toLocaleString()}</p>
+                    <p className="text-sm text-muted-foreground">Total messages</p>
+                  </div>
                 </div>
               )}
             </CardContent>
