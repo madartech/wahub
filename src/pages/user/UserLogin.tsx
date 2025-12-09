@@ -22,19 +22,16 @@ export default function UserLogin() {
 
     try {
       const user = await authService.userLogin({ username, password });
-      if (user) {
-        login(user);
-        if (user.status === 'disabled') {
-          navigate('/user/disabled');
-        } else {
-          toast.success('Welcome back!');
-          navigate('/user/home');
-        }
+      login(user);
+      if (user.status === 'disabled') {
+        navigate('/user/disabled');
       } else {
-        toast.error('Invalid credentials');
+        toast.success('Welcome back!');
+        navigate('/user/home');
       }
     } catch (error) {
-      toast.error('Login failed. Please try again.');
+      const message = error instanceof Error ? error.message : 'Login failed. Please try again.';
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }

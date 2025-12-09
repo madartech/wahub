@@ -102,22 +102,28 @@ export const authService = {
     return null;
   },
 
-  async userLogin(credentials: LoginCredentials): Promise<AuthUser | null> {
-    await delay(500);
-    const user = users.find(
-      u => u.username === credentials.username && u.password === credentials.password
-    );
-    if (user) {
-      return {
-        id: user.id,
-        username: user.username,
-        role: 'user',
-        status: user.status,
-        apiKey: user.apiKey,
-        sessionStatus: user.sessionStatus,
-      };
+  async userLogin(credentials: LoginCredentials): Promise<AuthUser> {
+    const response = await fetch('http://localhost:3000/user/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(credentials),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Invalid credentials');
     }
-    return null;
+
+    const data = await response.json();
+    return {
+      id: data.id || data.username,
+      username: data.username,
+      role: 'user',
+      status: data.status || 'active',
+      apiKey: data.apikey || data.apiKey,
+    };
   },
 
   logout(): void {
