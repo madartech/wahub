@@ -156,8 +156,10 @@ export const userManagementService = {
   },
 
   async resetSession(apiKey: string): Promise<boolean> {
-    const response = await fetch(`${API_BASE_URL}/api/${apiKey}/restart-session`, {
+    const response = await fetch(`${API_BASE_URL}/admin/reset-session`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ apiKey }),
     });
 
     if (!response.ok) {
