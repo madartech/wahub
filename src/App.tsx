@@ -13,6 +13,7 @@ import UserLogin from "./pages/user/UserLogin";
 import UserHome from "./pages/user/UserHome";
 import QRConnect from "./pages/user/QRConnect";
 import SendMessage from "./pages/user/SendMessage";
+import MessageHistory from "./pages/user/MessageHistory";
 import DisabledAccount from "./pages/user/DisabledAccount";
 
 const queryClient = new QueryClient();
@@ -85,6 +86,7 @@ function AppRoutes() {
       <Route path="/user/home" element={<UserRoute><UserHome /></UserRoute>} />
       <Route path="/user/qr" element={<UserRoute><QRConnect /></UserRoute>} />
       <Route path="/user/send" element={<UserRoute><SendMessage /></UserRoute>} />
+      <Route path="/user/history" element={<UserRoute><MessageHistory /></UserRoute>} />
       
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />

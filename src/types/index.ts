@@ -39,3 +39,16 @@ export interface SendMediaPayload {
   file: File;
   caption: string;
 }
+
+export type MessageType = 'text' | 'image' | 'pdf';
+
+export type DeliveryStatus = 'pending' | 'sent' | 'delivered' | 'failed';
+
+export interface MessageHistory {
+  id: string;
+  recipientNumber: string;
+  messageType: MessageType;
+  content: string;
+  timestamp: Date;
+  status: DeliveryStatus;
+}

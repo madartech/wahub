@@ -13,6 +13,7 @@ import {
   X,
   Shield,
   MessageCircle,
+  History,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -30,6 +31,7 @@ const userNavItems: NavItem[] = [
   { label: 'Home', href: '/user/home', icon: <Home className="w-5 h-5" /> },
   { label: 'QR Connect', href: '/user/qr', icon: <QrCode className="w-5 h-5" /> },
   { label: 'Send Message', href: '/user/send', icon: <MessageSquare className="w-5 h-5" /> },
+  { label: 'History', href: '/user/history', icon: <History className="w-5 h-5" /> },
 ];
 
 interface DashboardLayoutProps {
