@@ -122,11 +122,11 @@ export const userManagementService = {
     return true;
   },
 
-  async toggleUserStatus(username: string, newStatus: "active" | "disabled"): Promise<boolean> {
-    const response = await fetch(`${API_BASE_URL}/admin/toggle-user/${encodeURIComponent(username)}`, {
+  async toggleUserStatus(username: string): Promise<boolean> {
+    const response = await fetch(`${API_BASE_URL}/admin/toggle-status`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus }),
+      body: JSON.stringify({ username }),
     });
 
     if (!response.ok) {

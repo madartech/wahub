@@ -87,7 +87,7 @@ export default function UsersManagement() {
   const handleToggleStatus = async (user: User) => {
     const newStatus = user.status === 'active' ? 'disabled' : 'active';
     try {
-      await userManagementService.toggleUserStatus(user.username, newStatus);
+      await userManagementService.toggleUserStatus(user.username);
       setUsers(users.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u)));
       toast.success(`User "${user.username}" ${newStatus === 'active' ? 'enabled' : 'disabled'}`);
     } catch (error) {
