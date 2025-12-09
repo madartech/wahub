@@ -1,5 +1,8 @@
 import { User, AuthUser, LoginCredentials, SendTextPayload, SendMediaPayload, SessionStatus, MessageHistory } from '@/types';
 
+// Production API base URL
+const API_BASE_URL = 'https://api.madarivms.com';
+
 // Fake data store
 let users: User[] = [
   {
@@ -103,7 +106,7 @@ export const authService = {
   },
 
   async userLogin(credentials: LoginCredentials): Promise<AuthUser> {
-    const response = await fetch('http://localhost:3000/user/login', {
+    const response = await fetch(`${API_BASE_URL}/user/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -148,7 +151,7 @@ export const userManagementService = {
   },
 
   async createUser(username: string, password: string): Promise<User> {
-    const response = await fetch('http://localhost:3000/admin/create-user', {
+    const response = await fetch(`${API_BASE_URL}/admin/create-user`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -205,7 +208,7 @@ export const whatsappService = {
   },
 
   async getQRCode(apiKey: string): Promise<{ qr?: string; status?: string }> {
-    const response = await fetch(`http://localhost:3000/api/${apiKey}/qr`);
+    const response = await fetch(`${API_BASE_URL}/api/${apiKey}/qr`);
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -216,7 +219,7 @@ export const whatsappService = {
   },
 
   async sendText(apiKey: string, payload: SendTextPayload): Promise<void> {
-    const response = await fetch(`http://localhost:3000/api/${apiKey}/send-text`, {
+    const response = await fetch(`${API_BASE_URL}/api/${apiKey}/send-text`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -241,7 +244,7 @@ export const whatsappService = {
       formData.append('file', payload.file);
     }
 
-    const response = await fetch(`http://localhost:3000/api/${apiKey}/send-image`, {
+    const response = await fetch(`${API_BASE_URL}/api/${apiKey}/send-image`, {
       method: 'POST',
       body: formData,
     });
@@ -260,7 +263,7 @@ export const whatsappService = {
       formData.append('file', payload.file);
     }
 
-    const response = await fetch(`http://localhost:3000/api/${apiKey}/send-pdf`, {
+    const response = await fetch(`${API_BASE_URL}/api/${apiKey}/send-pdf`, {
       method: 'POST',
       body: formData,
     });
@@ -272,7 +275,7 @@ export const whatsappService = {
   },
 
   async getMessageCount(apiKey: string): Promise<number> {
-    const response = await fetch(`http://localhost:3000/api/${apiKey}/message-count`);
+    const response = await fetch(`${API_BASE_URL}/api/${apiKey}/message-count`);
     
     if (!response.ok) {
       return 0;
