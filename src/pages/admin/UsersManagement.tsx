@@ -25,7 +25,17 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Plus, RefreshCw, Key, Power, Loader2, Copy, Users } from 'lucide-react';
+import { Plus, RefreshCw, Key, Power, Loader2, Copy, Users, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function UsersManagement() {
   const [users, setUsers] = useState<User[]>([]);
@@ -37,6 +47,8 @@ export default function UsersManagement() {
   const [newPassword, setNewPassword] = useState('');
   const [resetPassword, setResetPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   const fetchUsers = async () => {
     setIsLoading(true);
@@ -96,6 +108,23 @@ export default function UsersManagement() {
       setSelectedUser(null);
     } catch (error) {
       toast.error('Failed to reset password');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    setIsSubmitting(true);
+    try {
+      await userManagementService.deleteUser(userToDelete.id);
+      setUsers(users.filter((u) => u.id !== userToDelete.id));
+      toast.success(`User "${userToDelete.username}" deleted successfully`);
+      setDeleteDialogOpen(false);
+      setUserToDelete(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete user';
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -295,6 +324,18 @@ export default function UsersManagement() {
                             >
                               <RefreshCw className="w-4 h-4" />
                             </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setUserToDelete(user);
+                                setDeleteDialogOpen(true);
+                              }}
+                              title="Delete user"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -341,6 +382,29 @@ export default function UsersManagement() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Delete User Dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete User</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete "{userToDelete?.username}"? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setUserToDelete(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteUser}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={isSubmitting}
+              >
+                {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );

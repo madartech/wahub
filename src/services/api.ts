@@ -161,11 +161,24 @@ export const userManagementService = {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Failed to create user');
+      throw new Error(errorData.error || errorData.message || 'Failed to create user');
     }
 
     const newUser = await response.json();
     return newUser;
+  },
+
+  async deleteUser(userId: string): Promise<boolean> {
+    const response = await fetch(`${API_BASE_URL}/admin/delete-user/${userId}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || errorData.message || 'Failed to delete user');
+    }
+
+    return true;
   },
 
   async toggleUserStatus(userId: string): Promise<User | null> {
