@@ -138,10 +138,13 @@ export const userManagementService = {
   },
 
   async resetPassword(username: string, newPassword: string): Promise<boolean> {
-    const response = await fetch(`${API_BASE_URL}/admin/reset-password/${encodeURIComponent(username)}`, {
+    const response = await fetch(`${API_BASE_URL}/admin/reset-password`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password: newPassword }),
+      body: JSON.stringify({
+        username,
+        newPassword,
+      }),
     });
 
     if (!response.ok) {
