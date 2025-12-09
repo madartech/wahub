@@ -146,8 +146,14 @@ export const authService = {
 // User Management Services (Admin)
 export const userManagementService = {
   async getUsers(): Promise<User[]> {
-    await delay(300);
-    return [...users];
+    const response = await fetch(`${API_BASE_URL}/admin/users`);
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || errorData.message || 'Failed to fetch users');
+    }
+
+    return await response.json();
   },
 
   async createUser(username: string, password: string): Promise<User> {
