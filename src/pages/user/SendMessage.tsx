@@ -43,7 +43,8 @@ export default function SendMessage() {
       setTextNumber('');
       setTextMessage('');
     } catch (error) {
-      toast.error('Failed to send message');
+      const message = error instanceof Error ? error.message : 'Failed to send message';
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -64,8 +65,12 @@ export default function SendMessage() {
       setImageNumber('');
       setImageFile(null);
       setImageCaption('');
+      // Reset file input
+      const fileInput = document.getElementById('image-file') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
     } catch (error) {
-      toast.error('Failed to send image');
+      const message = error instanceof Error ? error.message : 'Failed to send image';
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -86,8 +91,12 @@ export default function SendMessage() {
       setPdfNumber('');
       setPdfFile(null);
       setPdfCaption('');
+      // Reset file input
+      const fileInput = document.getElementById('pdf-file') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
     } catch (error) {
-      toast.error('Failed to send PDF');
+      const message = error instanceof Error ? error.message : 'Failed to send PDF';
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }

@@ -215,22 +215,71 @@ export const whatsappService = {
     return await response.json();
   },
 
-  async sendText(apiKey: string, payload: SendTextPayload): Promise<boolean> {
-    await delay(500);
-    console.log(`[API] Sending text to ${payload.number}: ${payload.message}`);
-    return true;
+  async sendText(apiKey: string, payload: SendTextPayload): Promise<void> {
+    const response = await fetch(`http://localhost:3000/api/${apiKey}/send-text`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        number: payload.number,
+        message: payload.message,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to send text message');
+    }
   },
 
-  async sendImage(apiKey: string, payload: SendMediaPayload): Promise<boolean> {
-    await delay(800);
-    console.log(`[API] Sending image to ${payload.number} with caption: ${payload.caption}`);
-    return true;
+  async sendImage(apiKey: string, payload: SendMediaPayload): Promise<void> {
+    const formData = new FormData();
+    formData.append('number', payload.number);
+    formData.append('caption', payload.caption || '');
+    if (payload.file) {
+      formData.append('file', payload.file);
+    }
+
+    const response = await fetch(`http://localhost:3000/api/${apiKey}/send-image`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to send image');
+    }
   },
 
-  async sendPDF(apiKey: string, payload: SendMediaPayload): Promise<boolean> {
-    await delay(800);
-    console.log(`[API] Sending PDF to ${payload.number} with caption: ${payload.caption}`);
-    return true;
+  async sendPDF(apiKey: string, payload: SendMediaPayload): Promise<void> {
+    const formData = new FormData();
+    formData.append('number', payload.number);
+    formData.append('caption', payload.caption || '');
+    if (payload.file) {
+      formData.append('file', payload.file);
+    }
+
+    const response = await fetch(`http://localhost:3000/api/${apiKey}/send-pdf`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to send PDF');
+    }
+  },
+
+  async getMessageCount(apiKey: string): Promise<number> {
+    const response = await fetch(`http://localhost:3000/api/${apiKey}/message-count`);
+    
+    if (!response.ok) {
+      return 0;
+    }
+
+    const data = await response.json();
+    return data.count || 0;
   },
 
   async getMessageHistory(apiKey: string): Promise<MessageHistory[]> {
