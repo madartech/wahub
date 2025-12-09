@@ -174,8 +174,8 @@ export const userManagementService = {
     return newUser;
   },
 
-  async deleteUser(userId: string): Promise<boolean> {
-    const response = await fetch(`${API_BASE_URL}/admin/delete-user/${userId}`, {
+  async deleteUser(username: string): Promise<boolean> {
+    const response = await fetch(`${API_BASE_URL}/admin/delete-user/${encodeURIComponent(username)}`, {
       method: 'DELETE',
     });
 
