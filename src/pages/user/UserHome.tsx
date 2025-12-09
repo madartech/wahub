@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { whatsappService } from '@/services/api';
@@ -6,33 +6,67 @@ import { SessionStatus } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Copy, Key, Wifi, WifiOff, QrCode, Loader2 } from 'lucide-react';
+import { Copy, Key, Wifi, WifiOff, QrCode, Loader2, Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function UserHome() {
   const { user } = useAuth();
   const [status, setStatus] = useState<SessionStatus>('offline');
   const [isLoading, setIsLoading] = useState(true);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  const fetchStatus = useCallback(async () => {
+    if (user?.apiKey) {
+      try {
+        const currentStatus = await whatsappService.getStatus(user.apiKey);
+        setStatus(currentStatus);
+        
+        // Close modal if connected
+        if (currentStatus === 'online' && qrModalOpen) {
+          setQrModalOpen(false);
+          setQrCode(null);
+          toast.success('WhatsApp connected successfully!');
+        }
+      } catch (error) {
+        console.error('Failed to fetch status');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  }, [user?.apiKey, qrModalOpen]);
 
   useEffect(() => {
-    const fetchStatus = async () => {
-      if (user?.apiKey) {
-        try {
-          const currentStatus = await whatsappService.getStatus(user.apiKey);
-          setStatus(currentStatus);
-        } catch (error) {
-          console.error('Failed to fetch status');
-        } finally {
-          setIsLoading(false);
-        }
-      }
-    };
-
     fetchStatus();
-    const interval = setInterval(fetchStatus, 10000);
+    const interval = setInterval(fetchStatus, 3000);
     return () => clearInterval(interval);
-  }, [user?.apiKey]);
+  }, [fetchStatus]);
+
+  const handleConnectWhatsApp = async () => {
+    if (!user?.apiKey) return;
+    
+    setIsConnecting(true);
+    try {
+      const response = await whatsappService.getQRCode(user.apiKey);
+      
+      if (response.status === 'already_connected') {
+        toast.success('WhatsApp is already connected!');
+        setStatus('online');
+      } else if (response.qr) {
+        setQrCode(response.qr);
+        setQrModalOpen(true);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to get QR code';
+      toast.error(message);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
 
   const copyApiKey = () => {
     if (user?.apiKey) {
@@ -59,7 +93,7 @@ export default function UserHome() {
         return {
           icon: <WifiOff className="w-8 h-8 text-muted-foreground" />,
           badge: <Badge variant="offline" className="text-sm">Disconnected</Badge>,
-          message: 'Your WhatsApp is disconnected. Re-login required.',
+          message: 'Your WhatsApp is disconnected. Click Connect to re-login.',
         };
     }
   };
@@ -125,13 +159,24 @@ export default function UserHome() {
                       </p>
                     </div>
                   </div>
-                  {status !== 'online' && (
-                    <Link to="/user/qr">
-                      <Button className="w-full">
+                  {status === 'online' ? (
+                    <div className="flex items-center gap-2 text-success">
+                      <Check className="w-5 h-5" />
+                      <span className="font-medium">Connected ✓</span>
+                    </div>
+                  ) : (
+                    <Button 
+                      className="w-full" 
+                      onClick={handleConnectWhatsApp}
+                      disabled={isConnecting}
+                    >
+                      {isConnecting ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
                         <QrCode className="w-4 h-4 mr-2" />
-                        Connect WhatsApp
-                      </Button>
-                    </Link>
+                      )}
+                      Connect WhatsApp
+                    </Button>
                   )}
                 </div>
               )}
@@ -147,12 +192,15 @@ export default function UserHome() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <Link to="/user/qr">
-                <Button variant="outline" className="w-full h-auto py-4 flex flex-col gap-2">
-                  <QrCode className="w-6 h-6" />
-                  <span>Scan QR Code</span>
-                </Button>
-              </Link>
+              <Button 
+                variant="outline" 
+                className="w-full h-auto py-4 flex flex-col gap-2"
+                onClick={handleConnectWhatsApp}
+                disabled={isConnecting || status === 'online'}
+              >
+                <QrCode className="w-6 h-6" />
+                <span>{status === 'online' ? 'Connected' : 'Scan QR Code'}</span>
+              </Button>
               <Link to="/user/send">
                 <Button variant="outline" className="w-full h-auto py-4 flex flex-col gap-2">
                   <Wifi className="w-6 h-6" />
@@ -171,6 +219,35 @@ export default function UserHome() {
           </CardContent>
         </Card>
       </div>
+
+      {/* QR Code Modal */}
+      <Dialog open={qrModalOpen} onOpenChange={setQrModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="w-5 h-5" />
+              Scan QR Code
+            </DialogTitle>
+            <DialogDescription>
+              Open WhatsApp on your phone and scan this QR code to connect.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center py-6">
+            {qrCode ? (
+              <div className="bg-white p-4 rounded-lg">
+                <QRCodeSVG value={qrCode} size={256} level="M" />
+              </div>
+            ) : (
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            )}
+            <p className="text-sm text-muted-foreground mt-4 text-center">
+              Waiting for connection...
+              <br />
+              <span className="text-xs">Auto-checking every 3 seconds</span>
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
