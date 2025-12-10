@@ -302,12 +302,14 @@ export default function UserHome() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center justify-center py-6">
-            {qrCode ? (
+            {!qrCode && status === "online" ? (
+              <p className="text-green-600 font-medium">WhatsApp Connected</p>
+            ) : !qrCode ? (
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            ) : (
               <div className="bg-white p-4 rounded-lg">
                 <QRCodeSVG value={qrCode} size={256} level="M" />
               </div>
-            ) : (
-              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
             )}
             <p className="text-sm text-muted-foreground mt-4 text-center">
               Waiting for connection...
