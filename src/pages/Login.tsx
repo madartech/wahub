@@ -1,58 +1,61 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { authService } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
-import { User, ArrowLeft, Loader2 } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { MessageCircle, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
-export default function UserLogin() {
+export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const user = await authService.userLogin({ username, password });
+      const user = await authService.login({ username, password });
       login(user);
-      if (user.status === 'disabled') {
+
+      if (user.role === 'admin') {
+        navigate('/admin/users');
+      } else if (user.status === 'disabled') {
         navigate('/user/disabled');
       } else {
-        toast.success('Welcome back!');
         navigate('/user/home');
       }
+
+      toast({
+        title: 'Welcome back!',
+        description: `Logged in as ${user.username}`,
+      });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Login failed. Please try again.';
-      toast.error(message);
+      toast({
+        title: 'Login failed',
+        description: error instanceof Error ? error.message : 'Invalid credentials',
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-      <Link
-        to="/"
-        className="absolute top-4 left-4 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back to home
-      </Link>
-
-      <Card className="w-full max-w-md animate-fade-in">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-            <User className="w-8 h-8 text-primary" />
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <MessageCircle className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-2xl">User Login</CardTitle>
+          <CardTitle className="text-2xl">Sign In</CardTitle>
           <CardDescription>
             Enter your credentials to access your dashboard
           </CardDescription>
@@ -64,10 +67,11 @@ export default function UserLogin() {
               <Input
                 id="username"
                 type="text"
-                placeholder="your_username"
+                placeholder="Enter your username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
+                disabled={isLoading}
               />
             </div>
             <div className="space-y-2">
@@ -75,20 +79,24 @@ export default function UserLogin() {
               <Input
                 id="password"
                 type="password"
-                placeholder="••••••••"
+                placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={isLoading}
               />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Sign In
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                'Sign In'
+              )}
             </Button>
           </form>
-          <p className="text-xs text-muted-foreground text-center mt-4">
-            Demo: john_doe / password123
-          </p>
         </CardContent>
       </Card>
     </div>

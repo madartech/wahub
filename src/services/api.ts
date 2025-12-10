@@ -14,15 +14,7 @@ const API_BASE_URL = "https://api.madarivms.com";
    AUTH SERVICE
 ============================ */
 export const authService = {
-  async adminLogin(credentials: LoginCredentials): Promise<AuthUser | null> {
-    if (credentials.username === "admin" && credentials.password === "admin123") {
-      return { id: "admin", username: "admin", role: "admin", status: "active" };
-    }
-    return null;
-  },
-
-  async userLogin(credentials: LoginCredentials): Promise<AuthUser> {
-    // CORRECT BACKEND LOGIN ENDPOINT
+  async login(credentials: LoginCredentials): Promise<AuthUser> {
     const response = await fetch(`${API_BASE_URL}/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -39,7 +31,7 @@ export const authService = {
     return {
       id: data.username,
       username: data.username,
-      role: "user",
+      role: data.role || "user",
       status: data.status,
       apiKey: data.apikey,
     };
