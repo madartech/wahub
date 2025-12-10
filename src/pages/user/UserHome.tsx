@@ -56,45 +56,48 @@ export default function UserHome() {
     if (!user?.apiKey) return;
 
     setIsConnecting(true);
+    
+    // Always open modal first so user sees loading
     setQrModalOpen(true);
     setQrCode(null);
 
     try {
-      // Fetch initial QR code
-      const first = await whatsappService.getQRCode(user.apiKey);
-      if (first.qr) {
-        setQrCode(first.qr);
+      // FIRST: fetch QR immediately
+      const resp = await whatsappService.getQRCode(user.apiKey);
+      if (resp.qr) {
+        setQrCode(resp.qr);
       }
 
-      // Start polling status every 3 seconds
+      // SECOND: start polling status AND QR refresh
       const interval = setInterval(async () => {
         try {
-          const statusResp = await whatsappService.getStatus(user.apiKey);
+          const statusResp = await fetch(`https://api.madarivms.com/api/${user.apiKey}/status`);
+          const statusData = await statusResp.json();
 
-          if (statusResp === "online" || statusResp === "connected") {
-            // Connected - close modal and stop polling
+          // If backend says connected → stop everything
+          if (statusData.status === "connected") {
             clearInterval(interval);
-            qrIntervalRef.current = null;
             setQrModalOpen(false);
-            setQrCode(null);
-            toast.success("WhatsApp Connected!");
             setStatus("online");
-          } else if (statusResp === "qr" || statusResp === "qr_pending") {
-            // QR pending - refresh QR code
+            toast.success("WhatsApp connected!");
+            return;
+          }
+
+          // If backend says QR stage → refresh QR from backend
+          if (statusData.status === "qr") {
             const qrResp = await whatsappService.getQRCode(user.apiKey);
             if (qrResp.qr) {
               setQrCode(qrResp.qr);
             }
-          } else if (statusResp === "offline" || statusResp === "disconnected") {
-            // Disconnected
-            setStatus("offline");
           }
-        } catch (e) {
-          console.log("Status polling error:", e);
+
+        } catch (err) {
+          console.log("Polling error:", err);
         }
       }, 3000);
 
       qrIntervalRef.current = interval;
+
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to get QR code";
       toast.error(message);
