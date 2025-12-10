@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { whatsappService } from '@/services/api';
@@ -20,6 +20,7 @@ export default function UserHome() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [messageCount, setMessageCount] = useState<number>(0);
+  const qrIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchStatus = useCallback(async () => {
     if (user?.apiKey) {
@@ -53,20 +54,39 @@ export default function UserHome() {
 
   const handleConnectWhatsApp = async () => {
     if (!user?.apiKey) return;
-    
+
     setIsConnecting(true);
+    setQrModalOpen(true);
+    setQrCode(null);
+
     try {
-      const response = await whatsappService.getQRCode(user.apiKey);
-      
-      if (response.status === 'already_connected') {
-        toast.success('WhatsApp is already connected!');
-        setStatus('online');
-      } else if (response.qr) {
-        setQrCode(response.qr);
-        setQrModalOpen(true);
+      const first = await whatsappService.getQRCode(user.apiKey);
+      if (first.qr) {
+        setQrCode(first.qr);
       }
+
+      const interval = setInterval(async () => {
+        try {
+          const resp = await whatsappService.getQRCode(user.apiKey);
+
+          if (resp.qr) {
+            setQrCode(resp.qr);
+          }
+
+          if (resp.status === "connected") {
+            clearInterval(interval);
+            setQrModalOpen(false);
+            toast.success("WhatsApp Connected!");
+            setStatus("online");
+          }
+        } catch (e) {
+          console.log("QR polling error:", e);
+        }
+      }, 3000);
+
+      qrIntervalRef.current = interval;
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to get QR code';
+      const message = error instanceof Error ? error.message : "Failed to get QR code";
       toast.error(message);
     } finally {
       setIsConnecting(false);
