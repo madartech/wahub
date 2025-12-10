@@ -185,10 +185,12 @@ export const whatsappService = {
 
   async getQRCode(apiKey: string) {
     const response = await fetch(`${API_BASE_URL}/api/${apiKey}/qr`);
+    
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || "Failed to get QR code");
+      throw new Error(error.error || "Failed to get QR code");
     }
+
     return await response.json();
   },
 
