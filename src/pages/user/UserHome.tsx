@@ -52,55 +52,65 @@ export default function UserHome() {
     return () => clearInterval(interval);
   }, [fetchStatus]);
 
+  const startPollingForConnection = useCallback(() => {
+    if (!user?.apiKey) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const statusResp = await fetch(`https://api.madarivms.com/api/${user.apiKey}/status`);
+        const statusData = await statusResp.json();
+
+        if (statusData.status === "connected") {
+          clearInterval(interval);
+          qrIntervalRef.current = null;
+          setQrModalOpen(false);
+          setQrCode(null);
+          setStatus("online");
+          toast.success("WhatsApp connected!");
+          return;
+        }
+
+        if (statusData.status === "qr") {
+          const qrResp = await whatsappService.getQRCode(user.apiKey);
+          if (qrResp.qr) {
+            setQrCode(qrResp.qr);
+          }
+        }
+      } catch (err) {
+        console.log("Polling error:", err);
+      }
+    }, 3000);
+
+    qrIntervalRef.current = interval;
+  }, [user?.apiKey]);
+
   const handleConnectWhatsApp = async () => {
     if (!user?.apiKey) return;
 
     setIsConnecting(true);
-    
-    // Always open modal first so user sees loading
-    setQrModalOpen(true);
-    setQrCode(null);
 
     try {
-      // FIRST: fetch QR immediately
-      const resp = await whatsappService.getQRCode(user.apiKey);
-      if (resp.qr) {
-        setQrCode(resp.qr);
+      const data = await whatsappService.getQRCode(user.apiKey);
+
+      if (data.status === "connected") {
+        toast.success("WhatsApp already connected");
+        setStatus("online");
+        setQrModalOpen(false);
+        setQrCode(null);
+        return;
       }
 
-      // SECOND: start polling status AND QR refresh
-      const interval = setInterval(async () => {
-        try {
-          const statusResp = await fetch(`https://api.madarivms.com/api/${user.apiKey}/status`);
-          const statusData = await statusResp.json();
+      if (data.status === "qr" && data.qr) {
+        setQrCode(data.qr);
+        setQrModalOpen(true);
+        toast.info("Scan QR to connect");
+        startPollingForConnection();
+        return;
+      }
 
-          // If backend says connected → stop everything
-          if (statusData.status === "connected") {
-            clearInterval(interval);
-            setQrModalOpen(false);
-            setStatus("online");
-            toast.success("WhatsApp connected!");
-            return;
-          }
-
-          // If backend says QR stage → refresh QR from backend
-          if (statusData.status === "qr") {
-            const qrResp = await whatsappService.getQRCode(user.apiKey);
-            if (qrResp.qr) {
-              setQrCode(qrResp.qr);
-            }
-          }
-
-        } catch (err) {
-          console.log("Polling error:", err);
-        }
-      }, 3000);
-
-      qrIntervalRef.current = interval;
-
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to get QR code";
-      toast.error(message);
+      toast.error("Unable to get QR code");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to connect WhatsApp");
     } finally {
       setIsConnecting(false);
     }
