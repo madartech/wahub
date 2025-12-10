@@ -52,37 +52,28 @@ export default function UserHome() {
     return () => clearInterval(interval);
   }, [fetchStatus]);
 
-  const startPollingForConnection = useCallback(() => {
-    if (!user?.apiKey) return;
+  const API_BASE_URL = "https://api.madarivms.com";
 
-    const interval = setInterval(async () => {
+  const startPollingForConnection = () => {
+    if (qrIntervalRef.current) clearInterval(qrIntervalRef.current);
+
+    qrIntervalRef.current = setInterval(async () => {
       try {
-        const statusResp = await fetch(`https://api.madarivms.com/api/${user.apiKey}/status`);
-        const statusData = await statusResp.json();
+        const response = await fetch(`${API_BASE_URL}/api/${user?.apiKey}/status`);
+        const data = await response.json();
 
-        if (statusData.status === "connected") {
-          clearInterval(interval);
+        if (data.status === "connected") {
+          clearInterval(qrIntervalRef.current!);
           qrIntervalRef.current = null;
+
+          toast.success("WhatsApp Connected");
+          setStatus("online");
           setQrModalOpen(false);
           setQrCode(null);
-          setStatus("online");
-          toast.success("WhatsApp connected!");
-          return;
         }
-
-        if (statusData.status === "qr") {
-          const qrResp = await whatsappService.getQRCode(user.apiKey);
-          if (qrResp.qr) {
-            setQrCode(qrResp.qr);
-          }
-        }
-      } catch (err) {
-        console.log("Polling error:", err);
-      }
+      } catch {}
     }, 3000);
-
-    qrIntervalRef.current = interval;
-  }, [user?.apiKey]);
+  };
 
   const handleConnectWhatsApp = async () => {
     if (!user?.apiKey) return;
