@@ -7,9 +7,8 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import AdminLogin from "./pages/admin/AdminLogin";
+import Login from "./pages/Login";
 import UsersManagement from "./pages/admin/UsersManagement";
-import UserLogin from "./pages/user/UserLogin";
 import UserHome from "./pages/user/UserHome";
 import QRConnect from "./pages/user/QRConnect";
 import SendMessage from "./pages/user/SendMessage";
@@ -27,7 +26,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   }
   
   if (!user || user.role !== 'admin') {
-    return <Navigate to="/admin/login" replace />;
+    return <Navigate to="/login" replace />;
   }
   
   return <>{children}</>;
@@ -42,7 +41,7 @@ function UserRoute({ children }: { children: React.ReactNode }) {
   }
   
   if (!user || user.role !== 'user') {
-    return <Navigate to="/user/login" replace />;
+    return <Navigate to="/login" replace />;
   }
   
   if (user.status === 'disabled') {
@@ -61,7 +60,7 @@ function DisabledRoute({ children }: { children: React.ReactNode }) {
   }
   
   if (!user) {
-    return <Navigate to="/user/login" replace />;
+    return <Navigate to="/login" replace />;
   }
   
   if (user.status !== 'disabled') {
@@ -75,13 +74,12 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Index />} />
+      <Route path="/login" element={<Login />} />
       
       {/* Admin Routes */}
-      <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin/users" element={<AdminRoute><UsersManagement /></AdminRoute>} />
       
       {/* User Routes */}
-      <Route path="/user/login" element={<UserLogin />} />
       <Route path="/user/disabled" element={<DisabledRoute><DisabledAccount /></DisabledRoute>} />
       <Route path="/user/home" element={<UserRoute><UserHome /></UserRoute>} />
       <Route path="/user/qr" element={<UserRoute><QRConnect /></UserRoute>} />
