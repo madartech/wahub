@@ -2,7 +2,7 @@ export type UserRole = 'admin' | 'user';
 
 export type UserStatus = 'active' | 'disabled';
 
-export type SessionStatus = 'online' | 'offline' | 'qr_pending';
+export type SessionStatus = 'online' | 'offline' | 'qr_pending' | 'connected' | 'disconnected' | 'qr';
 
 export interface User {
   id: string;

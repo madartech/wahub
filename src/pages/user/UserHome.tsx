@@ -60,27 +60,37 @@ export default function UserHome() {
     setQrCode(null);
 
     try {
+      // Fetch initial QR code
       const first = await whatsappService.getQRCode(user.apiKey);
       if (first.qr) {
         setQrCode(first.qr);
       }
 
+      // Start polling status every 3 seconds
       const interval = setInterval(async () => {
         try {
-          const resp = await whatsappService.getQRCode(user.apiKey);
+          const statusResp = await whatsappService.getStatus(user.apiKey);
 
-          if (resp.qr) {
-            setQrCode(resp.qr);
-          }
-
-          if (resp.status === "connected") {
+          if (statusResp === "online" || statusResp === "connected") {
+            // Connected - close modal and stop polling
             clearInterval(interval);
+            qrIntervalRef.current = null;
             setQrModalOpen(false);
+            setQrCode(null);
             toast.success("WhatsApp Connected!");
             setStatus("online");
+          } else if (statusResp === "qr" || statusResp === "qr_pending") {
+            // QR pending - refresh QR code
+            const qrResp = await whatsappService.getQRCode(user.apiKey);
+            if (qrResp.qr) {
+              setQrCode(qrResp.qr);
+            }
+          } else if (statusResp === "offline" || statusResp === "disconnected") {
+            // Disconnected
+            setStatus("offline");
           }
         } catch (e) {
-          console.log("QR polling error:", e);
+          console.log("Status polling error:", e);
         }
       }, 3000);
 
