@@ -10,24 +10,20 @@ import {
 
 const API_BASE_URL = "https://api.madarivms.com";
 
-// ------------------------------
-// AUTH SERVICES
-// ------------------------------
+/* ============================
+   AUTH SERVICE
+============================ */
 export const authService = {
   async adminLogin(credentials: LoginCredentials): Promise<AuthUser | null> {
     if (credentials.username === "admin" && credentials.password === "admin123") {
-      return {
-        id: "admin",
-        username: "admin",
-        role: "admin",
-        status: "active",
-      };
+      return { id: "admin", username: "admin", role: "admin", status: "active" };
     }
     return null;
   },
 
   async userLogin(credentials: LoginCredentials): Promise<AuthUser> {
-    const response = await fetch(`${API_BASE_URL}/user/login`, {
+    // CORRECT BACKEND LOGIN ENDPOINT
+    const response = await fetch(`${API_BASE_URL}/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(credentials),
@@ -35,7 +31,7 @@ export const authService = {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || "Invalid login credentials");
+      throw new Error(error.error || "Invalid login credentials");
     }
 
     const data = await response.json();
@@ -44,7 +40,7 @@ export const authService = {
       id: data.username,
       username: data.username,
       role: "user",
-      status: data.status || "active",
+      status: data.status,
       apiKey: data.apikey,
     };
   },
@@ -54,8 +50,7 @@ export const authService = {
   },
 
   getStoredUser(): AuthUser | null {
-    const stored = localStorage.getItem("authUser");
-    return stored ? JSON.parse(stored) : null;
+    return JSON.parse(localStorage.getItem("authUser") || "null");
   },
 
   storeUser(user: AuthUser) {
@@ -63,149 +58,79 @@ export const authService = {
   },
 };
 
-// ------------------------------
-// USER MANAGEMENT SERVICES
-// ------------------------------
+/* ============================
+   USER MANAGEMENT SERVICE
+============================ */
 export const userManagementService = {
   async getUsers(): Promise<User[]> {
     const response = await fetch(`${API_BASE_URL}/admin/users`);
+    const raw = await response.json();
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || "Failed to fetch users");
-    }
-
-    const data = await response.json();
-
-    // Backend returns an object { username: { details } }
-    if (typeof data === "object" && !Array.isArray(data)) {
-      return Object.entries(data).map(([username, info]: any) => ({
-        id: username,
-        username,
-        password: info.password,
-        status: info.status || "active",
-        apiKey: info.apikey,
-        messageCount: info.messagesToday || 0,
-        sessionStatus: info.session || "offline",
-        createdAt: new Date(),
-      }));
-    }
-
-    return [];
+    // backend returns an array, ensure frontend gets proper format
+    return raw.map((u: any) => ({
+      username: u.username,
+      status: u.status,
+      apikey: u.apikey,
+      messagesToday: u.messagesToday,
+      lastReset: u.lastReset,
+    }));
   },
 
-  async createUser(username: string, password: string): Promise<User> {
-    const response = await fetch(`${API_BASE_URL}/admin/create-user`, {
+  createUser(username: string, password: string) {
+    return fetch(`${API_BASE_URL}/admin/create-user`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
     });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || "Failed to create user");
-    }
-
-    return await response.json();
   },
 
-  async deleteUser(username: string): Promise<boolean> {
-    const response = await fetch(`${API_BASE_URL}/admin/delete-user/${encodeURIComponent(username)}`, {
+  deleteUser(username: string) {
+    return fetch(`${API_BASE_URL}/admin/delete-user/${encodeURIComponent(username)}`, {
       method: "DELETE",
     });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || "Failed to delete user");
-    }
-
-    return true;
   },
 
-  async toggleUserStatus(username: string): Promise<boolean> {
-    const response = await fetch(`${API_BASE_URL}/admin/toggle-status`, {
+  toggleUserStatus(username: string) {
+    return fetch(`${API_BASE_URL}/admin/toggle-status`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username }),
     });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || "Failed to toggle user status");
-    }
-
-    return true;
   },
 
-  async resetPassword(username: string, newPassword: string): Promise<boolean> {
-    const response = await fetch(`${API_BASE_URL}/admin/reset-password`, {
+  resetPassword(username: string, newPassword: string) {
+    return fetch(`${API_BASE_URL}/admin/reset-password`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username,
-        newPassword,
-      }),
+      body: JSON.stringify({ username, newPassword }),
     });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || "Failed to reset password");
-    }
-
-    return true;
   },
 
-  async resetSession(apiKey: string): Promise<boolean> {
-    const response = await fetch(`${API_BASE_URL}/admin/reset-session`, {
+  resetSession(apiKey: string) {
+    return fetch(`${API_BASE_URL}/admin/reset-session`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ apiKey }),
     });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || "Failed to reset session");
-    }
-
-    return true;
   },
 };
 
-// ------------------------------
-// WHATSAPP SERVICE
-// ------------------------------
+/* ============================
+   WHATSAPP SERVICE
+============================ */
 export const whatsappService = {
-  async getStatus(apiKey: string): Promise<SessionStatus> {
-    const response = await fetch(`${API_BASE_URL}/api/${apiKey}/status`);
-    if (!response.ok) return "offline";
+  getStatus: (apiKey: string) =>
+    fetch(`${API_BASE_URL}/api/${apiKey}/status`).then((r) => r.json()),
 
-    const data = await response.json();
-    return data.status || "offline";
-  },
+  getQRCode: (apiKey: string) =>
+    fetch(`${API_BASE_URL}/api/${apiKey}/qr`).then((r) => r.json()),
 
-  async getQRCode(apiKey: string) {
-    const response = await fetch(`${API_BASE_URL}/api/${apiKey}/qr`);
-    
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || "Failed to get QR code");
-    }
-
-    return await response.json();
-  },
-
-  async sendText(apiKey: string, payload: SendTextPayload) {
-    const response = await fetch(`${API_BASE_URL}/api/${apiKey}/send-text`, {
+  sendText: (apiKey: string, payload: SendTextPayload) =>
+    fetch(`${API_BASE_URL}/api/${apiKey}/send-text`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || "Failed to send text message");
-    }
-  },
+    }),
 
   async sendImage(apiKey: string, payload: SendMediaPayload) {
     const formData = new FormData();
@@ -235,13 +160,8 @@ export const whatsappService = {
     if (!response.ok) throw new Error("Failed to send PDF");
   },
 
-  async getMessageCount(apiKey: string): Promise<number> {
-    const response = await fetch(`${API_BASE_URL}/api/${apiKey}/message-count`);
-    if (!response.ok) return 0;
-
-    const data = await response.json();
-    return data.count || 0;
-  },
+  getMessageCount: (apiKey: string) =>
+    fetch(`${API_BASE_URL}/api/${apiKey}/message-count`).then((r) => r.json()),
 
   async getMessageHistory(apiKey: string): Promise<MessageHistory[]> {
     return [];
