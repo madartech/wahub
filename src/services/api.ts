@@ -8,7 +8,7 @@ import {
   MessageHistory,
 } from "@/types";
 
-const API_BASE_URL = "https://api.madarivms.com";
+const API_BASE_URL = "http://localhost:3000";
 
 /* ============================
    AUTH SERVICE
