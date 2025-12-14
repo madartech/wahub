@@ -1,66 +1,108 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { whatsappService } from '@/services/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw, QrCode, CheckCircle } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { Loader2, Phone, CheckCircle, ArrowLeft } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
-export default function QRConnect() {
+type Step = 'phone' | 'otp' | 'success';
+
+export default function WhatsAppLogin() {
   const { user } = useAuth();
-  const [qrCode, setQrCode] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isConnected, setIsConnected] = useState(false);
-  const [countdown, setCountdown] = useState(20);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  const [step, setStep] = useState<Step>('phone');
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const fetchQRCode = async () => {
-    if (user?.apiKey) {
-      setIsLoading(true);
-      try {
-        const response = await whatsappService.getQRCode(user.apiKey);
-        
-        if (response.status === 'already_connected') {
-          setIsConnected(true);
-          setQrCode(null);
-        } else if (response.qr) {
-          setQrCode(response.qr);
-        }
-        
-        // Check status
-        const status = await whatsappService.getStatus(user.apiKey);
-        setIsConnected(status === 'online');
-      } catch (error) {
-        console.error('Failed to fetch QR code');
-      } finally {
-        setIsLoading(false);
-      }
+  const handleSendOTP = async () => {
+    if (!phone.trim()) {
+      toast({
+        title: 'Phone number required',
+        description: 'Please enter your phone number with country code',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!user?.apiKey) {
+      toast({
+        title: 'Error',
+        description: 'API key not found',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await whatsappService.requestLoginCode(user.apiKey, phone);
+      setStep('otp');
+      toast({
+        title: 'Code sent',
+        description: 'Check your WhatsApp for the verification code',
+      });
+    } catch (error) {
+      toast({
+        title: 'Failed to send code',
+        description: error instanceof Error ? error.message : 'Please try again',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchQRCode();
-  }, [user?.apiKey]);
-
-  // Auto-refresh countdown
-  useEffect(() => {
-    if (isConnected) return;
-
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-      if (prev <= 1) {
-        fetchQRCode();
-        return 20;
-      }
-        return prev - 1;
+  const handleVerifyOTP = async () => {
+    if (otp.length !== 6) {
+      toast({
+        title: 'Invalid code',
+        description: 'Please enter the 6-digit verification code',
+        variant: 'destructive',
       });
-    }, 1000);
+      return;
+    }
 
-    return () => clearInterval(timer);
-  }, [isConnected, user?.apiKey]);
+    if (!user?.apiKey) {
+      toast({
+        title: 'Error',
+        description: 'API key not found',
+        variant: 'destructive',
+      });
+      return;
+    }
 
-  if (isConnected) {
+    setIsLoading(true);
+    try {
+      await whatsappService.verifyLoginCode(user.apiKey, otp);
+      setStep('success');
+      toast({
+        title: 'Success!',
+        description: 'WhatsApp connected successfully',
+      });
+      // Navigate to home after short delay
+      setTimeout(() => navigate('/user/home'), 1500);
+    } catch (error) {
+      toast({
+        title: 'Invalid code',
+        description: 'The code is incorrect, please try again',
+        variant: 'destructive',
+      });
+      setOtp('');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (step === 'success') {
     return (
       <DashboardLayout>
         <div className="max-w-md mx-auto">
@@ -74,11 +116,6 @@ export default function QRConnect() {
                 Your WhatsApp is connected and ready to send messages.
               </CardDescription>
             </CardHeader>
-            <CardContent className="text-center">
-              <Badge variant="online" className="text-sm">
-                WhatsApp Connected
-              </Badge>
-            </CardContent>
           </Card>
         </div>
       </DashboardLayout>
@@ -91,42 +128,114 @@ export default function QRConnect() {
         <Card>
           <CardHeader className="text-center">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-              <QrCode className="w-8 h-8 text-primary" />
+              <Phone className="w-8 h-8 text-primary" />
             </div>
-            <CardTitle className="text-2xl">Connect WhatsApp</CardTitle>
+            <CardTitle className="text-2xl">
+              {step === 'phone' ? 'WhatsApp Login' : 'Enter Verification Code'}
+            </CardTitle>
             <CardDescription>
-              Scan this QR code with your WhatsApp mobile app to connect
+              {step === 'phone' 
+                ? 'Enter your phone number to receive a verification code' 
+                : 'Enter the 6-digit code sent to your WhatsApp'}
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="aspect-square bg-white rounded-lg flex items-center justify-center overflow-hidden p-4">
-              {isLoading ? (
-                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-              ) : qrCode ? (
-                <QRCodeSVG value={qrCode} size={256} level="M" />
-              ) : (
-                <p className="text-muted-foreground">Failed to load QR code</p>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <span>Auto-refresh in {countdown}s</span>
-              <Button variant="ghost" size="sm" onClick={fetchQRCode}>
-                <RefreshCw className="w-4 h-4 mr-1" />
-                Refresh now
-              </Button>
-            </div>
-
-            <div className="bg-muted/50 rounded-lg p-4 text-sm space-y-2">
-              <p className="font-medium">How to connect:</p>
-              <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-                <li>Open WhatsApp on your phone</li>
-                <li>Tap Menu or Settings</li>
-                <li>Select "Linked Devices"</li>
-                <li>Tap "Link a Device"</li>
-                <li>Point your phone at this QR code</li>
-              </ol>
-            </div>
+          <CardContent className="space-y-6">
+            {step === 'phone' ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number (with country code)</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="+1234567890"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    disabled={isLoading}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Include country code, e.g. +1 for USA, +44 for UK
+                  </p>
+                </div>
+                <Button 
+                  className="w-full" 
+                  onClick={handleSendOTP}
+                  disabled={isLoading || !phone.trim()}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    'Send OTP'
+                  )}
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="space-y-4">
+                  <div className="flex justify-center">
+                    <InputOTP 
+                      maxLength={6} 
+                      value={otp} 
+                      onChange={setOtp}
+                      disabled={isLoading}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+                  <p className="text-center text-sm text-muted-foreground">
+                    Didn't receive a code?{' '}
+                    <button 
+                      type="button"
+                      className="text-primary hover:underline"
+                      onClick={() => {
+                        setStep('phone');
+                        setOtp('');
+                      }}
+                      disabled={isLoading}
+                    >
+                      Try again
+                    </button>
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Button 
+                    className="w-full" 
+                    onClick={handleVerifyOTP}
+                    disabled={isLoading || otp.length !== 6}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Verifying...
+                      </>
+                    ) : (
+                      'Verify Code'
+                    )}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    className="w-full"
+                    onClick={() => {
+                      setStep('phone');
+                      setOtp('');
+                    }}
+                    disabled={isLoading}
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back
+                  </Button>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

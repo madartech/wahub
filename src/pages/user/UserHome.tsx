@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { whatsappService } from '@/services/api';
@@ -6,21 +6,15 @@ import { SessionStatus } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Copy, Key, Wifi, WifiOff, QrCode, Loader2, Check, MessageSquare } from 'lucide-react';
+import { Copy, Key, Wifi, WifiOff, Loader2, MessageSquare, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { QRCodeSVG } from 'qrcode.react';
 
 export default function UserHome() {
   const { user } = useAuth();
   const [status, setStatus] = useState<SessionStatus>('offline');
   const [isLoading, setIsLoading] = useState(true);
-  const [qrModalOpen, setQrModalOpen] = useState(false);
-  const [qrCode, setQrCode] = useState<string | null>(null);
-  const [isConnecting, setIsConnecting] = useState(false);
   const [messageCount, setMessageCount] = useState<number>(0);
-  const qrIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchStatus = useCallback(async () => {
     if (user?.apiKey) {
@@ -31,81 +25,19 @@ export default function UserHome() {
         // Fetch message count
         const count = await whatsappService.getMessageCount(user.apiKey);
         setMessageCount(count);
-        
-        // Close modal if connected
-        if (currentStatus === 'online' && qrModalOpen) {
-          setQrModalOpen(false);
-          setQrCode(null);
-          toast.success('WhatsApp connected successfully!');
-        }
       } catch (error) {
         console.error('Failed to fetch status');
       } finally {
         setIsLoading(false);
       }
     }
-  }, [user?.apiKey, qrModalOpen]);
+  }, [user?.apiKey]);
 
   useEffect(() => {
     fetchStatus();
     const interval = setInterval(fetchStatus, 3000);
     return () => clearInterval(interval);
   }, [fetchStatus]);
-
-  const API_BASE_URL = "https://api.madarivms.com";
-
-  const startPollingForConnection = () => {
-    if (qrIntervalRef.current) clearInterval(qrIntervalRef.current);
-
-    qrIntervalRef.current = setInterval(async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/${user?.apiKey}/status`);
-        const data = await response.json();
-
-        if (data.status === "connected") {
-          clearInterval(qrIntervalRef.current!);
-          qrIntervalRef.current = null;
-
-          toast.success("WhatsApp Connected");
-          setStatus("online");
-          setQrModalOpen(false);
-          setQrCode(null);
-        }
-      } catch {}
-    }, 3000);
-  };
-
-  const handleConnectWhatsApp = async () => {
-    if (!user?.apiKey) return;
-
-    setIsConnecting(true);
-
-    try {
-      const data = await whatsappService.getQRCode(user.apiKey);
-
-      if (data.status === "connected") {
-        toast.success("WhatsApp already connected");
-        setStatus("online");
-        setQrModalOpen(false);
-        setQrCode(null);
-        return;
-      }
-
-      if (data.status === "qr" && data.qr) {
-        setQrCode(data.qr);
-        setQrModalOpen(true);
-        toast.info("Scan QR to connect");
-        startPollingForConnection();
-        return;
-      }
-
-      toast.error("Unable to get QR code");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to connect WhatsApp");
-    } finally {
-      setIsConnecting(false);
-    }
-  };
 
   const copyApiKey = () => {
     if (user?.apiKey) {
@@ -124,15 +56,15 @@ export default function UserHome() {
         };
       case 'qr_pending':
         return {
-          icon: <QrCode className="w-8 h-8 text-warning animate-pulse-soft" />,
-          badge: <Badge variant="pending" className="text-sm">QR Required</Badge>,
-          message: 'Please scan the QR code to connect your WhatsApp.',
+          icon: <Phone className="w-8 h-8 text-warning animate-pulse-soft" />,
+          badge: <Badge variant="pending" className="text-sm">Login Required</Badge>,
+          message: 'Please login with your phone number to connect WhatsApp.',
         };
       default:
         return {
           icon: <WifiOff className="w-8 h-8 text-muted-foreground" />,
           badge: <Badge variant="offline" className="text-sm">Disconnected</Badge>,
-          message: 'Your WhatsApp is disconnected. Click Connect to re-login.',
+          message: 'Your WhatsApp is disconnected. Go to WhatsApp Login to connect.',
         };
     }
   };
@@ -258,37 +190,6 @@ export default function UserHome() {
           </CardContent>
         </Card>
       </div>
-
-      {/* QR Code Modal */}
-      <Dialog open={qrModalOpen} onOpenChange={setQrModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <QrCode className="w-5 h-5" />
-              Scan QR Code
-            </DialogTitle>
-            <DialogDescription>
-              Open WhatsApp on your phone and scan this QR code to connect.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col items-center justify-center py-6">
-            {!qrCode && status === "online" ? (
-              <p className="text-green-600 font-medium">WhatsApp Connected</p>
-            ) : !qrCode ? (
-              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-            ) : (
-              <div className="bg-white p-4 rounded-lg">
-                <QRCodeSVG value={qrCode} size={256} level="M" />
-              </div>
-            )}
-            <p className="text-sm text-muted-foreground mt-4 text-center">
-              Waiting for connection...
-              <br />
-              <span className="text-xs">Auto-checking every 3 seconds</span>
-            </p>
-          </div>
-        </DialogContent>
-      </Dialog>
     </DashboardLayout>
   );
 }
