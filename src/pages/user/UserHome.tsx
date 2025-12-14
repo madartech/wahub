@@ -188,35 +188,14 @@ export default function UserHome() {
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4">
-                    {statusInfo.icon}
-                    <div>
-                      {statusInfo.badge}
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {statusInfo.message}
-                      </p>
-                    </div>
+                <div className="flex items-center gap-4">
+                  {statusInfo.icon}
+                  <div>
+                    {statusInfo.badge}
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {statusInfo.message}
+                    </p>
                   </div>
-                  {status === 'online' ? (
-                    <div className="flex items-center gap-2 text-success">
-                      <Check className="w-5 h-5" />
-                      <span className="font-medium">Connected ✓</span>
-                    </div>
-                  ) : (
-                    <Button 
-                      className="w-full" 
-                      onClick={handleConnectWhatsApp}
-                      disabled={isConnecting}
-                    >
-                      {isConnecting ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <QrCode className="w-4 h-4 mr-2" />
-                      )}
-                      Connect WhatsApp
-                    </Button>
-                  )}
                 </div>
               )}
             </CardContent>
@@ -260,16 +239,7 @@ export default function UserHome() {
             <CardDescription>Common tasks you can perform</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <Button 
-                variant="outline" 
-                className="w-full h-auto py-4 flex flex-col gap-2"
-                onClick={handleConnectWhatsApp}
-                disabled={isConnecting || status === 'online'}
-              >
-                <QrCode className="w-6 h-6" />
-                <span>{status === 'online' ? 'Connected' : 'Scan QR Code'}</span>
-              </Button>
+            <div className="grid gap-4 sm:grid-cols-2">
               <Link to="/user/send">
                 <Button variant="outline" className="w-full h-auto py-4 flex flex-col gap-2">
                   <Wifi className="w-6 h-6" />
