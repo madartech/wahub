@@ -114,42 +114,66 @@ export const whatsappService = {
   getStatus: (apiKey: string) =>
     fetch(`${API_BASE_URL}/api/${apiKey}/status`).then((r) => r.json()),
 
-  getQRCode: (apiKey: string) =>
-    fetch(`${API_BASE_URL}/api/${apiKey}/qr`).then((r) => r.json()),
+  // OTP-based WhatsApp login
+  async requestLoginCode(apiKey: string, phone: string): Promise<void> {
+    const response = await fetch(`http://localhost:3000/api/${apiKey}/login/request-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to send verification code');
+    }
+  },
+
+  async verifyLoginCode(apiKey: string, code: string): Promise<void> {
+    const response = await fetch(`http://localhost:3000/api/${apiKey}/login/verify-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Invalid verification code');
+    }
+  },
 
   sendText: (apiKey: string, payload: SendTextPayload) =>
     fetch(`${API_BASE_URL}/api/${apiKey}/send-text`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     }),
 
   async sendImage(apiKey: string, payload: SendMediaPayload) {
     const formData = new FormData();
-    formData.append("number", payload.number);
-    formData.append("caption", payload.caption || "");
-    if (payload.file) formData.append("file", payload.file);
+    formData.append('number', payload.number);
+    formData.append('caption', payload.caption || '');
+    if (payload.file) formData.append('file', payload.file);
 
     const response = await fetch(`${API_BASE_URL}/api/${apiKey}/send-image`, {
-      method: "POST",
+      method: 'POST',
       body: formData,
     });
 
-    if (!response.ok) throw new Error("Failed to send image");
+    if (!response.ok) throw new Error('Failed to send image');
   },
 
   async sendPDF(apiKey: string, payload: SendMediaPayload) {
     const formData = new FormData();
-    formData.append("number", payload.number);
-    formData.append("caption", payload.caption || "");
-    if (payload.file) formData.append("file", payload.file);
+    formData.append('number', payload.number);
+    formData.append('caption', payload.caption || '');
+    if (payload.file) formData.append('file', payload.file);
 
     const response = await fetch(`${API_BASE_URL}/api/${apiKey}/send-pdf`, {
-      method: "POST",
+      method: 'POST',
       body: formData,
     });
 
-    if (!response.ok) throw new Error("Failed to send PDF");
+    if (!response.ok) throw new Error('Failed to send PDF');
   },
 
   getMessageCount: (apiKey: string) =>
