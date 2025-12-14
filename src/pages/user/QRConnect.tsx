@@ -13,7 +13,7 @@ export default function QRConnect() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
-  const [countdown, setCountdown] = useState(3);
+  const [countdown, setCountdown] = useState(20);
 
   const fetchQRCode = async () => {
     if (user?.apiKey) {
@@ -49,10 +49,10 @@ export default function QRConnect() {
 
     const timer = setInterval(() => {
       setCountdown((prev) => {
-        if (prev <= 1) {
-          fetchQRCode();
-          return 3;
-        }
+      if (prev <= 1) {
+        fetchQRCode();
+        return 20;
+      }
         return prev - 1;
       });
     }, 1000);
