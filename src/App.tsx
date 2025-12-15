@@ -8,6 +8,7 @@ import { GatewayAuthProvider, useGatewayAuth } from "@/contexts/GatewayAuthConte
 import GatewayLogin from "@/pages/gateway/Login";
 import Dashboard from "@/pages/gateway/Dashboard";
 import Users from "@/pages/gateway/Users";
+import AddUser from "@/pages/gateway/AddUser";
 import UserDetails from "@/pages/gateway/UserDetails";
 import GatewayLayout from "@/components/layout/GatewayLayout";
 import NotFound from "@/pages/NotFound";
@@ -61,6 +62,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Users />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/users/new"
+        element={
+          <ProtectedRoute>
+            <AddUser />
           </ProtectedRoute>
         }
       />
