@@ -1,6 +1,6 @@
 import { GatewayUser, HealthResponse, SendMessagePayload, SendMessageResponse } from '@/types/gateway';
 
-const GATEWAY_BASE_URL = 'http://127.0.0.1:4000';
+const GATEWAY_BASE_URL = 'https://gateway.madarivms.com';
 const USERS_STORAGE_KEY = 'gateway_users';
 
 // Seed data
