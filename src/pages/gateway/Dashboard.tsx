@@ -4,12 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { gatewayService } from '@/services/gateway';
-import { Activity, Users, RefreshCw, ArrowRight } from 'lucide-react';
+import { Activity, Users, RefreshCw, ArrowRight, Loader2 } from 'lucide-react';
 
 export default function Dashboard() {
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(false);
-  const [usersCount, setUsersCount] = useState(0);
+  const [usersCount, setUsersCount] = useState<number | null>(null);
+  const [usersError, setUsersError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const checkHealth = async () => {
@@ -19,16 +20,26 @@ export default function Dashboard() {
     setIsChecking(false);
   };
 
+  const fetchUsersCount = async () => {
+    const result = await gatewayService.getUsers();
+    if (result.ok) {
+      setUsersCount(result.users.length);
+      setUsersError(null);
+    } else {
+      setUsersError(result.error || 'Failed to load users');
+    }
+  };
+
   useEffect(() => {
     checkHealth();
-    setUsersCount(gatewayService.getUsers().length);
+    fetchUsersCount();
   }, []);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">Gateway status and overview</p>
+        <p className="text-muted-foreground">WAHA User Provisioning - Gateway status and overview</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -76,15 +87,23 @@ export default function Dashboard() {
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div className="space-y-1">
               <CardTitle className="text-lg font-medium">Users</CardTitle>
-              <CardDescription>Registered gateway users</CardDescription>
+              <CardDescription>Provisioned WhatsApp users</CardDescription>
             </div>
             <Users className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold">{usersCount}</div>
-                <p className="text-sm text-muted-foreground">Active users</p>
+                {usersError ? (
+                  <p className="text-sm text-destructive">{usersError}</p>
+                ) : usersCount === null ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                ) : (
+                  <>
+                    <div className="text-3xl font-bold">{usersCount}</div>
+                    <p className="text-sm text-muted-foreground">Registered users</p>
+                  </>
+                )}
               </div>
               <Button onClick={() => navigate('/users')}>
                 View Users

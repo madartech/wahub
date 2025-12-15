@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
-import { GatewayUser, SendMessageResponse } from '@/types/gateway';
+import { GatewayUser } from '@/types/gateway';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Copy, Eye, EyeOff, Send, Loader2 } from 'lucide-react';
+import { ArrowLeft, Copy, Loader2, QrCode, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
 
 export default function UserDetails() {
   const { id } = useParams<{ id: string }>();
@@ -16,21 +16,38 @@ export default function UserDetails() {
   const { toast } = useToast();
 
   const [user, setUser] = useState<GatewayUser | null>(null);
-  const [showToken, setShowToken] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [message, setMessage] = useState('');
-  const [isSending, setIsSending] = useState(false);
-  const [response, setResponse] = useState<SendMessageResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Provisioning state
+  const [isProvisioning, setIsProvisioning] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [isLoadingQR, setIsLoadingQR] = useState(false);
 
   useEffect(() => {
-    if (id) {
-      const foundUser = gatewayService.getUserById(id);
-      if (foundUser) {
-        setUser(foundUser);
-      } else {
+    const fetchUser = async () => {
+      if (!id) {
         navigate('/users');
+        return;
       }
-    }
+
+      setIsLoading(true);
+      const result = await gatewayService.getUsers();
+      
+      if (result.ok) {
+        const foundUser = result.users.find(u => u.id === id);
+        if (foundUser) {
+          setUser(foundUser);
+        } else {
+          setError('User not found');
+        }
+      } else {
+        setError(result.error || 'Failed to load user');
+      }
+      setIsLoading(false);
+    };
+
+    fetchUser();
   }, [id, navigate]);
 
   const handleCopy = async (text: string, label: string) => {
@@ -41,58 +58,63 @@ export default function UserDetails() {
     });
   };
 
-  const handleSendMessage = async () => {
-    if (!user) return;
+  const handleProvision = async () => {
+    if (!id) return;
 
-    // Clean phone number: allow + but strip it, keep only digits
-    const cleanPhone = phoneNumber.replace(/\+/g, '').replace(/\D/g, '');
-    
-    if (!cleanPhone) {
-      toast({
-        title: 'Error',
-        description: 'Please enter a valid phone number',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (!message.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Please enter a message',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsSending(true);
-    setResponse(null);
+    setIsProvisioning(true);
+    setError(null);
 
     try {
-      const result = await gatewayService.sendMessage(user.token, {
-        to: cleanPhone,
-        text: message.trim(),
-      });
+      const provisionResult = await gatewayService.provisionUser(id);
+      
+      // Update local user state
+      setUser(prev => prev ? {
+        ...prev,
+        provisioned: true,
+        instanceId: provisionResult.instanceId,
+        port: provisionResult.port,
+      } : null);
 
-      setResponse(result);
+      // Get QR code
+      setIsLoadingQR(true);
+      const qrResult = await gatewayService.getQRCode(id);
+      setQrDataUrl(qrResult.dataUrl);
+
       toast({
-        title: 'Message sent',
-        description: 'Your test message was sent successfully',
+        title: 'Provisioned',
+        description: 'WhatsApp instance is ready. Scan the QR code.',
       });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to send message';
-      setResponse({ ok: false, error: errorMessage });
-      toast({
-        title: 'Failed to send',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to provision user';
+      setError(errorMessage);
     } finally {
-      setIsSending(false);
+      setIsProvisioning(false);
+      setIsLoadingQR(false);
     }
   };
 
-  if (!user) {
+  const handleRefreshQR = async () => {
+    if (!id) return;
+
+    setIsLoadingQR(true);
+    setError(null);
+
+    try {
+      const qrResult = await gatewayService.getQRCode(id);
+      setQrDataUrl(qrResult.dataUrl);
+      toast({
+        title: 'QR Refreshed',
+        description: 'New QR code generated',
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to refresh QR';
+      setError(errorMessage);
+    } finally {
+      setIsLoadingQR(false);
+    }
+  };
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -100,8 +122,20 @@ export default function UserDetails() {
     );
   }
 
-  const gatewayUrl = gatewayService.getGatewayUrl();
-  const maskedToken = `${user.token.slice(0, 6)}${'*'.repeat(10)}`;
+  if (!user) {
+    return (
+      <div className="space-y-6">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/users')}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Users
+        </Button>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error || 'User not found'}</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -114,133 +148,150 @@ export default function UserDetails() {
 
       <div>
         <h1 className="text-3xl font-bold tracking-tight">{user.name}</h1>
-        <p className="text-muted-foreground">User details and test messaging</p>
+        <p className="text-muted-foreground">User details and provisioning</p>
       </div>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* User Info Card */}
         <Card>
           <CardHeader>
             <CardTitle>User Information</CardTitle>
-            <CardDescription>Gateway credentials and endpoints</CardDescription>
+            <CardDescription>User details and status</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-muted-foreground">User Name</Label>
+              <Label className="text-muted-foreground">Name</Label>
               <div className="font-medium">{user.name}</div>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-muted-foreground">WhatsApp Instance</Label>
+              <Label className="text-muted-foreground">Provisioned</Label>
               <div>
-                <code className="rounded bg-muted px-2 py-1 text-sm">{user.instance}</code>
+                {user.provisioned ? (
+                  <Badge className="bg-success text-success-foreground">Yes</Badge>
+                ) : (
+                  <Badge variant="secondary">No</Badge>
+                )}
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-muted-foreground">Gateway URL</Label>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 rounded bg-muted px-3 py-2 text-sm font-mono break-all">
-                  {gatewayUrl}
-                </code>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleCopy(gatewayUrl, 'Gateway URL')}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
+            {user.instanceId && (
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Instance ID</Label>
+                <div>
+                  <code className="rounded bg-muted px-2 py-1 text-sm">{user.instanceId}</code>
+                </div>
               </div>
-            </div>
+            )}
 
-            <div className="space-y-2">
-              <Label className="text-muted-foreground">Gateway Token</Label>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 rounded bg-muted px-3 py-2 text-sm font-mono">
-                  {showToken ? user.token : maskedToken}
-                </code>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowToken(!showToken)}
-                >
-                  {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleCopy(user.token, 'Token')}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
+            {user.port && (
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Port</Label>
+                <div>
+                  <code className="rounded bg-muted px-2 py-1 text-sm">{user.port}</code>
+                </div>
               </div>
-            </div>
+            )}
+
+            {user.gatewayUrl && (
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Gateway URL</Label>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 rounded bg-muted px-3 py-2 text-sm font-mono break-all">
+                    {user.gatewayUrl}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopy(user.gatewayUrl || '', 'Gateway URL')}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Send Test Message Card */}
+        {/* Provisioning Card */}
         <Card>
           <CardHeader>
-            <CardTitle>Send Test Message</CardTitle>
-            <CardDescription>Test the gateway by sending a WhatsApp message</CardDescription>
+            <CardTitle>WhatsApp Provisioning</CardTitle>
+            <CardDescription>
+              {user.provisioned 
+                ? 'Manage WhatsApp connection' 
+                : 'Provision WhatsApp instance and scan QR'}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="phone">To (Phone Number)</Label>
-              <Input
-                id="phone"
-                placeholder="e.g., 968XXXXXXXX"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                disabled={isSending}
-              />
-              <p className="text-xs text-muted-foreground">
-                Enter digits with country code (+ will be stripped)
-              </p>
-            </div>
+            {!user.provisioned && (
+              <Button 
+                onClick={handleProvision} 
+                disabled={isProvisioning}
+                className="w-full"
+              >
+                {isProvisioning ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Provisioning...
+                  </>
+                ) : (
+                  <>
+                    <QrCode className="mr-2 h-4 w-4" />
+                    Provision & Generate QR
+                  </>
+                )}
+              </Button>
+            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="message">Message</Label>
-              <Textarea
-                id="message"
-                placeholder="Type your test message..."
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                rows={4}
-                disabled={isSending}
-              />
-            </div>
+            {(user.provisioned || qrDataUrl) && (
+              <div className="space-y-4">
+                {user.provisioned && !qrDataUrl && (
+                  <div className="flex items-center gap-2 text-success">
+                    <CheckCircle className="h-5 w-5" />
+                    <span className="font-medium">Instance provisioned</span>
+                  </div>
+                )}
 
-            <Button 
-              onClick={handleSendMessage} 
-              disabled={isSending}
-              className="w-full"
-            >
-              {isSending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Send className="mr-2 h-4 w-4" />
-                  Send Message
-                </>
-              )}
-            </Button>
+                {/* QR Code Display */}
+                {qrDataUrl && (
+                  <div className="flex flex-col items-center gap-4 p-4 border rounded-lg bg-muted/30">
+                    {isLoadingQR ? (
+                      <div className="flex items-center justify-center h-64 w-64">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : (
+                      <img 
+                        src={qrDataUrl} 
+                        alt="WhatsApp QR Code" 
+                        className="h-64 w-64 rounded-lg border bg-white"
+                      />
+                    )}
 
-            {response && (
-              <div className={`rounded-lg border p-4 ${
-                response.ok 
-                  ? 'border-success/50 bg-success/10' 
-                  : 'border-destructive/50 bg-destructive/10'
-              }`}>
-                <div className="text-sm font-medium mb-2">
-                  {response.ok ? '✓ Success' : '✗ Error'}
-                </div>
-                <pre className="text-xs overflow-auto whitespace-pre-wrap">
-                  {JSON.stringify(response, null, 2)}
-                </pre>
+                    <p className="text-sm text-center text-muted-foreground">
+                      Scan this QR in WhatsApp → Linked devices → Link a device
+                    </p>
+                  </div>
+                )}
+
+                {user.provisioned && (
+                  <Button 
+                    variant="outline" 
+                    onClick={handleRefreshQR}
+                    disabled={isLoadingQR}
+                    className="w-full"
+                  >
+                    <RefreshCw className={`mr-2 h-4 w-4 ${isLoadingQR ? 'animate-spin' : ''}`} />
+                    {qrDataUrl ? 'Refresh QR' : 'Get QR Code'}
+                  </Button>
+                )}
               </div>
             )}
           </CardContent>

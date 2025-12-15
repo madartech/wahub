@@ -1,13 +1,15 @@
-import { GatewayUser, HealthResponse, SendMessagePayload, SendMessageResponse } from '@/types/gateway';
+import { 
+  HealthResponse, 
+  SendMessagePayload, 
+  SendMessageResponse,
+  UsersListResponse,
+  CreateUserResponse,
+  ProvisionResponse,
+  QRResponse 
+} from '@/types/gateway';
 
 const GATEWAY_BASE_URL = 'https://gateway.madarivms.com';
-const USERS_STORAGE_KEY = 'gateway_users';
-
-// Seed data
-const seedUsers: GatewayUser[] = [
-  { id: '1', name: 'User 1', instance: 'u1', token: 'token_user1_ChangeMe' },
-  { id: '2', name: 'User 2', instance: 'u2', token: 'token_user2_ChangeMe' },
-];
+const ADMIN_TOKEN = '@dmin142242';
 
 export const gatewayService = {
   // Health check
@@ -22,6 +24,102 @@ export const gatewayService = {
     } catch {
       return { ok: false };
     }
+  },
+
+  // Get all users from backend
+  async getUsers(): Promise<UsersListResponse> {
+    try {
+      const res = await fetch(`${GATEWAY_BASE_URL}/admin/users`, {
+        method: 'GET',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Admin-Token': ADMIN_TOKEN,
+        },
+      });
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || data.message || `HTTP ${res.status}`);
+      }
+      
+      return { ok: true, users: data.users || [] };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch users';
+      return { ok: false, users: [], error: errorMessage };
+    }
+  },
+
+  // Create a new user
+  async createUser(name: string): Promise<CreateUserResponse> {
+    const res = await fetch(`${GATEWAY_BASE_URL}/admin/users`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Admin-Token': ADMIN_TOKEN,
+      },
+      body: JSON.stringify({ name }),
+    });
+    
+    const data = await res.json();
+    
+    if (!res.ok) {
+      throw new Error(data.error || data.message || `HTTP ${res.status}`);
+    }
+    
+    return {
+      ok: true,
+      id: data.id,
+      name: data.name,
+      token: data.token,
+      gatewayUrl: data.gatewayUrl,
+    };
+  },
+
+  // Provision a user (create WAHA instance)
+  async provisionUser(userId: string): Promise<ProvisionResponse> {
+    const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/provision`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Admin-Token': ADMIN_TOKEN,
+      },
+      body: JSON.stringify({}),
+    });
+    
+    const data = await res.json();
+    
+    if (!res.ok) {
+      throw new Error(data.error || data.message || `HTTP ${res.status}`);
+    }
+    
+    return {
+      ok: true,
+      userId: data.userId,
+      instanceId: data.instanceId,
+      port: data.port,
+      qrEndpoint: data.qrEndpoint,
+    };
+  },
+
+  // Get QR code as base64
+  async getQRCode(userId: string): Promise<QRResponse> {
+    const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/qr-base64`, {
+      method: 'GET',
+      headers: { 
+        'X-Admin-Token': ADMIN_TOKEN,
+      },
+    });
+    
+    const data = await res.json();
+    
+    if (!res.ok) {
+      throw new Error(data.error || data.message || `HTTP ${res.status}`);
+    }
+    
+    return {
+      ok: true,
+      dataUrl: data.dataUrl,
+    };
   },
 
   // Send message
@@ -46,42 +144,6 @@ export const gatewayService = {
       waha: data.waha,
       timestamp: new Date().toISOString(),
     };
-  },
-
-  // Users management (localStorage)
-  getUsers(): GatewayUser[] {
-    const stored = localStorage.getItem(USERS_STORAGE_KEY);
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch {
-        return seedUsers;
-      }
-    }
-    // Initialize with seed data
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(seedUsers));
-    return seedUsers;
-  },
-
-  getUserById(id: string): GatewayUser | undefined {
-    const users = this.getUsers();
-    return users.find(u => u.id === id);
-  },
-
-  addUser(user: Omit<GatewayUser, 'id'>): GatewayUser {
-    const users = this.getUsers();
-    const newUser: GatewayUser = {
-      ...user,
-      id: Date.now().toString(),
-    };
-    users.push(newUser);
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
-    return newUser;
-  },
-
-  deleteUser(id: string): void {
-    const users = this.getUsers().filter(u => u.id !== id);
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
   },
 
   getGatewayUrl(): string {
