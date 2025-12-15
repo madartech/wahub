@@ -8,7 +8,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
 import { GatewayUser } from '@/types/gateway';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Copy, Loader2, QrCode, RefreshCw, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Copy, Loader2, QrCode, RefreshCw, CheckCircle, AlertCircle, Eye, EyeOff, Send } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 export default function UserDetails() {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +26,11 @@ export default function UserDetails() {
   const [isProvisioning, setIsProvisioning] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [isLoadingQR, setIsLoadingQR] = useState(false);
+
+  // Send test message state
+  const [testPhone, setTestPhone] = useState('');
+  const [testMessage, setTestMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -112,6 +119,34 @@ export default function UserDetails() {
       setError(errorMessage);
     } finally {
       setIsLoadingQR(false);
+    }
+  };
+
+  const handleSendTestMessage = async () => {
+    if (!user?.token || !testPhone.trim() || !testMessage.trim()) return;
+
+    setIsSending(true);
+    try {
+      const phone = testPhone.replace(/[^\d]/g, ''); // Strip non-digits
+      const result = await gatewayService.sendMessage(user.token, {
+        to: phone,
+        text: testMessage,
+      });
+      
+      toast({
+        title: 'Message Sent',
+        description: `Sent to ${phone}${result.ack ? ' (acknowledged)' : ''}`,
+      });
+      setTestMessage('');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to send message';
+      toast({
+        title: 'Send Failed',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -322,6 +357,47 @@ export default function UserDetails() {
             )}
           </CardContent>
         </Card>
+
+        {/* Send Test Message Card */}
+        {user.provisioned && user.token && (
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-base">Send Test Message</CardTitle>
+              <CardDescription>Send a WhatsApp message using this user's token</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Input
+                  placeholder="Phone (e.g. 966501234567)"
+                  value={testPhone}
+                  onChange={(e) => setTestPhone(e.target.value)}
+                  className="sm:w-48"
+                />
+                <Textarea
+                  placeholder="Message..."
+                  value={testMessage}
+                  onChange={(e) => setTestMessage(e.target.value)}
+                  className="flex-1 min-h-[40px] max-h-24"
+                  rows={1}
+                />
+                <Button
+                  onClick={handleSendTestMessage}
+                  disabled={isSending || !testPhone.trim() || !testMessage.trim()}
+                  className="sm:w-auto"
+                >
+                  {isSending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Send
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
