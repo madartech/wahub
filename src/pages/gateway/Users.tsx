@@ -16,7 +16,6 @@ import { gatewayService } from '@/services/gateway';
 import { GatewayUser } from '@/types/gateway';
 import { Plus, Eye, Loader2, AlertCircle, RefreshCw, Copy, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
-import { useState as useStateLocal } from 'react';
 
 function UserRow({ user, navigate }: { user: GatewayUser; navigate: (path: string) => void }) {
   const [showToken, setShowToken] = useState(false);
@@ -155,7 +154,7 @@ export default function Users() {
                 ))}
                 {users.length === 0 && !error && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       No users found. Add your first WhatsApp user.
                     </TableCell>
                   </TableRow>

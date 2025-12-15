@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
 import { GatewayUser } from '@/types/gateway';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Copy, Loader2, QrCode, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Copy, Loader2, QrCode, RefreshCw, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 export default function UserDetails() {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +18,7 @@ export default function UserDetails() {
   const [user, setUser] = useState<GatewayUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showToken, setShowToken] = useState(false);
 
   // Provisioning state
   const [isProvisioning, setIsProvisioning] = useState(false);
@@ -170,6 +171,31 @@ export default function UserDetails() {
               <Label className="text-muted-foreground">Name</Label>
               <div className="font-medium">{user.name}</div>
             </div>
+
+            {user.token && (
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Token</Label>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 rounded bg-muted px-3 py-2 text-sm font-mono">
+                    {showToken ? user.token : '••••••••••••••••••••'}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowToken(!showToken)}
+                  >
+                    {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopy(user.token || '', 'Token')}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label className="text-muted-foreground">Provisioned</Label>
