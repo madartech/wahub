@@ -50,6 +50,24 @@ export const gatewayService = {
     }
   },
 
+  // Get user token (reveal full token)
+  async getUserToken(userId: string): Promise<{ ok: boolean; token: string }> {
+    const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/token`, {
+      method: 'GET',
+      headers: { 
+        'X-Admin-Token': ADMIN_TOKEN,
+      },
+    });
+    
+    const data = await res.json();
+    
+    if (!res.ok) {
+      throw new Error(data.error || data.message || `HTTP ${res.status}`);
+    }
+    
+    return { ok: true, token: data.token };
+  },
+
   // Create a new user
   async createUser(name: string): Promise<CreateUserResponse> {
     const res = await fetch(`${GATEWAY_BASE_URL}/admin/users`, {
