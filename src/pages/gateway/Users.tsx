@@ -14,7 +14,68 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
 import { GatewayUser } from '@/types/gateway';
-import { Plus, Eye, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Plus, Eye, Loader2, AlertCircle, RefreshCw, Copy, EyeOff } from 'lucide-react';
+import { toast } from 'sonner';
+import { useState as useStateLocal } from 'react';
+
+function UserRow({ user, navigate }: { user: GatewayUser; navigate: (path: string) => void }) {
+  const [showToken, setShowToken] = useState(false);
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Token copied to clipboard');
+  };
+
+  return (
+    <TableRow>
+      <TableCell className="font-medium">{user.name}</TableCell>
+      <TableCell>
+        {user.token ? (
+          <div className="flex items-center gap-1">
+            <code className="rounded bg-muted px-2 py-1 text-xs max-w-[120px] truncate">
+              {showToken ? user.token : '••••••••••••'}
+            </code>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowToken(!showToken)}>
+              {showToken ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+            </Button>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(user.token!)}>
+              <Copy className="h-3 w-3" />
+            </Button>
+          </div>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </TableCell>
+      <TableCell>
+        {user.provisioned ? (
+          <Badge className="bg-success text-success-foreground">Yes</Badge>
+        ) : (
+          <Badge variant="secondary">No</Badge>
+        )}
+      </TableCell>
+      <TableCell>
+        {user.instanceId ? (
+          <code className="rounded bg-muted px-2 py-1 text-sm">{user.instanceId}</code>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </TableCell>
+      <TableCell>
+        {user.port ? (
+          <code className="rounded bg-muted px-2 py-1 text-sm">{user.port}</code>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </TableCell>
+      <TableCell className="text-right">
+        <Button variant="ghost" size="sm" onClick={() => navigate(`/users/${user.id}`)}>
+          <Eye className="h-4 w-4 mr-2" />
+          View
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+}
 
 export default function Users() {
   const [users, setUsers] = useState<GatewayUser[]>([]);
@@ -81,6 +142,7 @@ export default function Users() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
+                  <TableHead>Token</TableHead>
                   <TableHead>Provisioned</TableHead>
                   <TableHead>Instance ID</TableHead>
                   <TableHead>Port</TableHead>
@@ -89,44 +151,7 @@ export default function Users() {
               </TableHeader>
               <TableBody>
                 {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell>
-                      {user.provisioned ? (
-                        <Badge className="bg-success text-success-foreground">Yes</Badge>
-                      ) : (
-                        <Badge variant="secondary">No</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {user.instanceId ? (
-                        <code className="rounded bg-muted px-2 py-1 text-sm">
-                          {user.instanceId}
-                        </code>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {user.port ? (
-                        <code className="rounded bg-muted px-2 py-1 text-sm">
-                          {user.port}
-                        </code>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => navigate(`/users/${user.id}`)}
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        View
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                  <UserRow key={user.id} user={user} navigate={navigate} />
                 ))}
                 {users.length === 0 && !error && (
                   <TableRow>
