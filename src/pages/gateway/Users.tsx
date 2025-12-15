@@ -50,7 +50,7 @@ function UserRow({ user, navigate, onDelete, isDeleting, revealedTokens, onRevea
   return (
     <TableRow>
       <TableCell className="font-medium">{user.name}</TableCell>
-      <TableCell>
+      <TableCell className="hidden md:table-cell">
         {revealedToken ? (
           <div className="flex items-center gap-1">
             <code className="rounded bg-muted px-2 py-1 text-xs max-w-[140px] truncate">
@@ -80,7 +80,7 @@ function UserRow({ user, navigate, onDelete, isDeleting, revealedTokens, onRevea
           <span className="text-muted-foreground">—</span>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden sm:table-cell">
         {user.phoneNumber ? (
           <span className="font-mono text-sm">{user.phoneNumber}</span>
         ) : (
@@ -94,7 +94,7 @@ function UserRow({ user, navigate, onDelete, isDeleting, revealedTokens, onRevea
           <Badge variant="secondary">No</Badge>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden lg:table-cell">
         {user.instanceId ? (
           <code className="rounded bg-muted px-2 py-1 text-sm">{user.instanceId}</code>
         ) : (
@@ -103,13 +103,12 @@ function UserRow({ user, navigate, onDelete, isDeleting, revealedTokens, onRevea
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1">
-          <Button variant="ghost" size="sm" onClick={() => navigate(`/users/${user.id}`)}>
-            <Eye className="h-4 w-4 mr-1" />
-            View
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/users/${user.id}`)}>
+            <Eye className="h-4 w-4" />
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
                 <Trash2 className="h-4 w-4" />
               </Button>
             </AlertDialogTrigger>
@@ -198,19 +197,19 @@ export default function Users() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Users</h1>
-          <p className="text-muted-foreground">Manage WhatsApp users and provisioning</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Users</h1>
+          <p className="text-sm text-muted-foreground">Manage WhatsApp users and provisioning</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={fetchUsers} disabled={isLoading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline ml-2">Refresh</span>
           </Button>
-          <Button onClick={() => navigate('/users/new')}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add WhatsApp User
+          <Button size="sm" onClick={() => navigate('/users/new')}>
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline ml-2">Add User</span>
           </Button>
         </div>
       </div>
@@ -235,15 +234,16 @@ export default function Users() {
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Token</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Provisioned</TableHead>
-                  <TableHead>Instance</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+            <div className="overflow-x-auto -mx-6 px-6">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead className="hidden md:table-cell">Token</TableHead>
+                    <TableHead className="hidden sm:table-cell">Phone</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="hidden lg:table-cell">Instance</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -266,8 +266,9 @@ export default function Users() {
                     </TableCell>
                   </TableRow>
                 )}
-              </TableBody>
-            </Table>
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
