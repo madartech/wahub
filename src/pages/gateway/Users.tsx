@@ -11,36 +11,44 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
 import { GatewayUser } from '@/types/gateway';
-import { Plus, Eye, Loader2, AlertCircle, RefreshCw, Copy, EyeOff } from 'lucide-react';
+import { Plus, Eye, Loader2, AlertCircle, RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-function UserRow({ user, navigate }: { user: GatewayUser; navigate: (path: string) => void }) {
-  const [showToken, setShowToken] = useState(false);
+interface UserRowProps {
+  user: GatewayUser;
+  navigate: (path: string) => void;
+  onDelete: (userId: string, userName: string) => void;
+  isDeleting: boolean;
+}
 
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success('Token copied to clipboard');
-  };
-
+function UserRow({ user, navigate, onDelete, isDeleting }: UserRowProps) {
   return (
     <TableRow>
       <TableCell className="font-medium">{user.name}</TableCell>
       <TableCell>
-        {user.token ? (
-          <div className="flex items-center gap-1">
-            <code className="rounded bg-muted px-2 py-1 text-xs max-w-[120px] truncate">
-              {showToken ? user.token : '••••••••••••'}
-            </code>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowToken(!showToken)}>
-              {showToken ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-            </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(user.token!)}>
-              <Copy className="h-3 w-3" />
-            </Button>
-          </div>
+        {user.tokenMasked ? (
+          <code className="rounded bg-muted px-2 py-1 text-xs">{user.tokenMasked}</code>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </TableCell>
+      <TableCell>
+        {user.phoneNumber ? (
+          <span className="font-mono text-sm">{user.phoneNumber}</span>
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
@@ -59,18 +67,38 @@ function UserRow({ user, navigate }: { user: GatewayUser; navigate: (path: strin
           <span className="text-muted-foreground">—</span>
         )}
       </TableCell>
-      <TableCell>
-        {user.port ? (
-          <code className="rounded bg-muted px-2 py-1 text-sm">{user.port}</code>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
-      </TableCell>
       <TableCell className="text-right">
-        <Button variant="ghost" size="sm" onClick={() => navigate(`/users/${user.id}`)}>
-          <Eye className="h-4 w-4 mr-2" />
-          View
-        </Button>
+        <div className="flex items-center justify-end gap-1">
+          <Button variant="ghost" size="sm" onClick={() => navigate(`/users/${user.id}`)}>
+            <Eye className="h-4 w-4 mr-1" />
+            View
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete User</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete <strong>{user.name}</strong>? This will remove the user and their WhatsApp instance. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => onDelete(user.id, user.name)}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </TableCell>
     </TableRow>
   );
@@ -79,6 +107,7 @@ function UserRow({ user, navigate }: { user: GatewayUser; navigate: (path: strin
 export default function Users() {
   const [users, setUsers] = useState<GatewayUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
@@ -92,6 +121,20 @@ export default function Users() {
       setError(result.error || 'Failed to fetch users');
     }
     setIsLoading(false);
+  };
+
+  const handleDelete = async (userId: string, userName: string) => {
+    setIsDeleting(true);
+    try {
+      await gatewayService.deleteUser(userId);
+      toast.success(`Deleted ${userName}`);
+      fetchUsers();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete user';
+      toast.error(errorMessage);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   useEffect(() => {
@@ -142,15 +185,21 @@ export default function Users() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Token</TableHead>
+                  <TableHead>Phone</TableHead>
                   <TableHead>Provisioned</TableHead>
-                  <TableHead>Instance ID</TableHead>
-                  <TableHead>Port</TableHead>
+                  <TableHead>Instance</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users.map((user) => (
-                  <UserRow key={user.id} user={user} navigate={navigate} />
+                  <UserRow
+                    key={user.id}
+                    user={user}
+                    navigate={navigate}
+                    onDelete={handleDelete}
+                    isDeleting={isDeleting}
+                  />
                 ))}
                 {users.length === 0 && !error && (
                   <TableRow>

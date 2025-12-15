@@ -196,4 +196,22 @@ export const gatewayService = {
   getGatewayUrl(): string {
     return `${GATEWAY_BASE_URL}/gateway/whatsapp/send`;
   },
+
+  // Delete user
+  async deleteUser(userId: string): Promise<{ ok: boolean }> {
+    const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}`, {
+      method: 'DELETE',
+      headers: { 
+        'X-Admin-Token': ADMIN_TOKEN,
+      },
+    });
+    
+    const data = await res.json();
+    
+    if (!res.ok) {
+      throw new Error(data.error || data.message || `HTTP ${res.status}`);
+    }
+    
+    return { ok: true };
+  },
 };
