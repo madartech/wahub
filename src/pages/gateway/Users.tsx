@@ -25,7 +25,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
 import { GatewayUser } from '@/types/gateway';
-import { Plus, Eye, Loader2, AlertCircle, RefreshCw, Trash2 } from 'lucide-react';
+import { Plus, Eye, EyeOff, Loader2, AlertCircle, RefreshCw, Trash2, Copy, Key } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface UserRowProps {
@@ -33,15 +33,49 @@ interface UserRowProps {
   navigate: (path: string) => void;
   onDelete: (userId: string, userName: string) => void;
   isDeleting: boolean;
+  revealedTokens: Record<string, string>;
+  onRevealToken: (userId: string) => void;
+  revealingTokenId: string | null;
 }
 
-function UserRow({ user, navigate, onDelete, isDeleting }: UserRowProps) {
+function UserRow({ user, navigate, onDelete, isDeleting, revealedTokens, onRevealToken, revealingTokenId }: UserRowProps) {
+  const [showToken, setShowToken] = useState(false);
+  const revealedToken = revealedTokens[user.id];
+  const isRevealing = revealingTokenId === user.id;
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Token copied to clipboard');
+  };
   return (
     <TableRow>
       <TableCell className="font-medium">{user.name}</TableCell>
       <TableCell>
-        {user.tokenMasked ? (
-          <code className="rounded bg-muted px-2 py-1 text-xs">{user.tokenMasked}</code>
+        {revealedToken ? (
+          <div className="flex items-center gap-1">
+            <code className="rounded bg-muted px-2 py-1 text-xs max-w-[140px] truncate">
+              {showToken ? revealedToken : '••••••••••••••••'}
+            </code>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowToken(!showToken)}>
+              {showToken ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+            </Button>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(revealedToken)}>
+              <Copy className="h-3 w-3" />
+            </Button>
+          </div>
+        ) : user.tokenMasked ? (
+          <div className="flex items-center gap-1">
+            <code className="rounded bg-muted px-2 py-1 text-xs">{user.tokenMasked}</code>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => onRevealToken(user.id)}
+              disabled={isRevealing}
+            >
+              {isRevealing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Key className="h-3 w-3" />}
+            </Button>
+          </div>
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
@@ -109,6 +143,8 @@ export default function Users() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [revealedTokens, setRevealedTokens] = useState<Record<string, string>>({});
+  const [revealingTokenId, setRevealingTokenId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const fetchUsers = async () => {
@@ -128,12 +164,31 @@ export default function Users() {
     try {
       await gatewayService.deleteUser(userId);
       toast.success(`Deleted ${userName}`);
+      // Remove revealed token for deleted user
+      setRevealedTokens(prev => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
       fetchUsers();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete user';
       toast.error(errorMessage);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleRevealToken = async (userId: string) => {
+    setRevealingTokenId(userId);
+    try {
+      const result = await gatewayService.getUserToken(userId);
+      setRevealedTokens(prev => ({ ...prev, [userId]: result.token }));
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to reveal token';
+      toast.error(errorMessage);
+    } finally {
+      setRevealingTokenId(null);
     }
   };
 
@@ -199,6 +254,9 @@ export default function Users() {
                     navigate={navigate}
                     onDelete={handleDelete}
                     isDeleting={isDeleting}
+                    revealedTokens={revealedTokens}
+                    onRevealToken={handleRevealToken}
+                    revealingTokenId={revealingTokenId}
                   />
                 ))}
                 {users.length === 0 && !error && (
