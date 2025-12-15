@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
 import { GatewayUser } from '@/types/gateway';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Copy, Loader2, QrCode, RefreshCw, CheckCircle, AlertCircle, Eye, EyeOff, Send } from 'lucide-react';
+import { ArrowLeft, Copy, Loader2, QrCode, RefreshCw, CheckCircle, AlertCircle, Eye, EyeOff, Send, Phone } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -20,7 +20,9 @@ export default function UserDetails() {
   const [user, setUser] = useState<GatewayUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showToken, setShowToken] = useState(false);
+
+  // Status state
+  const [isRefreshingStatus, setIsRefreshingStatus] = useState(false);
 
   // Provisioning state
   const [isProvisioning, setIsProvisioning] = useState(false);
@@ -122,20 +124,43 @@ export default function UserDetails() {
     }
   };
 
+  const handleRefreshStatus = async () => {
+    if (!id) return;
+
+    setIsRefreshingStatus(true);
+    try {
+      const result = await gatewayService.getUserStatus(id);
+      setUser(prev => prev ? { ...prev, phoneNumber: result.phoneNumber } : null);
+      toast({
+        title: 'Status Refreshed',
+        description: result.phoneNumber ? `Phone: ${result.phoneNumber}` : 'No phone linked yet',
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to get status';
+      toast({
+        title: 'Status Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRefreshingStatus(false);
+    }
+  };
+
   const handleSendTestMessage = async () => {
-    if (!user?.token || !testPhone.trim() || !testMessage.trim()) return;
+    if (!id || !testPhone.trim() || !testMessage.trim()) return;
 
     setIsSending(true);
     try {
       const phone = testPhone.replace(/[^\d]/g, ''); // Strip non-digits
-      const result = await gatewayService.sendMessage(user.token, {
+      await gatewayService.testSendMessage(id, {
         to: phone,
         text: testMessage,
       });
       
       toast({
         title: 'Message Sent',
-        description: `Sent to ${phone}${result.ack ? ' (acknowledged)' : ''}`,
+        description: `Sent to ${phone}`,
       });
       setTestMessage('');
     } catch (err) {
@@ -207,27 +232,23 @@ export default function UserDetails() {
               <div className="font-medium">{user.name}</div>
             </div>
 
-            {user.token && (
+            {user.tokenMasked && (
               <div className="space-y-2">
                 <Label className="text-muted-foreground">Token</Label>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 rounded bg-muted px-3 py-2 text-sm font-mono">
-                    {showToken ? user.token : '••••••••••••••••••••'}
+                    {user.tokenMasked}
                   </code>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowToken(!showToken)}
-                  >
-                    {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCopy(user.token || '', 'Token')}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
+                </div>
+              </div>
+            )}
+
+            {user.phoneNumber && (
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Phone Number</Label>
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">{user.phoneNumber}</span>
                 </div>
               </div>
             )}
@@ -277,6 +298,18 @@ export default function UserDetails() {
                   </Button>
                 </div>
               </div>
+            )}
+
+            {user.provisioned && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefreshStatus}
+                disabled={isRefreshingStatus}
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshingStatus ? 'animate-spin' : ''}`} />
+                Refresh Status
+              </Button>
             )}
           </CardContent>
         </Card>
@@ -359,7 +392,7 @@ export default function UserDetails() {
         </Card>
 
         {/* Send Test Message Card */}
-        {user.provisioned && user.token && (
+        {user.provisioned && (
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="text-base">Send Test Message</CardTitle>

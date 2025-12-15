@@ -5,7 +5,8 @@ import {
   UsersListResponse,
   CreateUserResponse,
   ProvisionResponse,
-  QRResponse 
+  QRResponse,
+  UserStatusResponse
 } from '@/types/gateway';
 
 const GATEWAY_BASE_URL = 'https://gateway.madarivms.com';
@@ -122,7 +123,53 @@ export const gatewayService = {
     };
   },
 
-  // Send message
+  // Get user status
+  async getUserStatus(userId: string): Promise<UserStatusResponse> {
+    const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/status`, {
+      method: 'GET',
+      headers: { 
+        'X-Admin-Token': ADMIN_TOKEN,
+      },
+    });
+    
+    const data = await res.json();
+    
+    if (!res.ok) {
+      throw new Error(data.error || data.message || `HTTP ${res.status}`);
+    }
+    
+    return {
+      ok: true,
+      phoneNumber: data.phoneNumber,
+      status: data.status,
+    };
+  },
+
+  // Test send message (admin endpoint)
+  async testSendMessage(userId: string, payload: SendMessagePayload): Promise<SendMessageResponse> {
+    const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/test-send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Token': ADMIN_TOKEN,
+      },
+      body: JSON.stringify(payload),
+    });
+    
+    const data = await res.json();
+    
+    if (!res.ok) {
+      throw new Error(data.error || data.message || `HTTP ${res.status}`);
+    }
+    
+    return {
+      ok: data.ok,
+      waha: data.waha,
+      timestamp: new Date().toISOString(),
+    };
+  },
+
+  // Send message (public endpoint with token)
   async sendMessage(token: string, payload: SendMessagePayload): Promise<SendMessageResponse> {
     const res = await fetch(`${GATEWAY_BASE_URL}/gateway/whatsapp/send`, {
       method: 'POST',
