@@ -3,68 +3,32 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { GatewayAuthProvider, useGatewayAuth } from "@/contexts/GatewayAuthContext";
 
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import Login from "./pages/Login";
-import UsersManagement from "./pages/admin/UsersManagement";
-import UserHome from "./pages/user/UserHome";
-import WhatsAppPairing from "./pages/user/WhatsAppPairing";
-import SendMessage from "./pages/user/SendMessage";
-import MessageHistory from "./pages/user/MessageHistory";
-import DisabledAccount from "./pages/user/DisabledAccount";
+import GatewayLogin from "@/pages/gateway/Login";
+import Dashboard from "@/pages/gateway/Dashboard";
+import Users from "@/pages/gateway/Users";
+import UserDetails from "@/pages/gateway/UserDetails";
+import GatewayLayout from "@/components/layout/GatewayLayout";
+import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
-// Protected route wrapper for admin
-function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isLoggedIn } = useGatewayAuth();
   
-  if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (!isLoggedIn) {
+    return <Navigate to="/" replace />;
   }
   
-  if (!user || user.role !== 'admin') {
-    return <Navigate to="/login" replace />;
-  }
-  
-  return <>{children}</>;
+  return <GatewayLayout>{children}</GatewayLayout>;
 }
 
-// Protected route wrapper for user
-function UserRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { isLoggedIn } = useGatewayAuth();
   
-  if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-  }
-  
-  if (!user || user.role !== 'user') {
-    return <Navigate to="/login" replace />;
-  }
-  
-  if (user.status === 'disabled') {
-    return <Navigate to="/user/disabled" replace />;
-  }
-  
-  return <>{children}</>;
-}
-
-// Disabled account route
-function DisabledRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
-  
-  if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-  }
-  
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-  
-  if (user.status !== 'disabled') {
-    return <Navigate to="/user/home" replace />;
+  if (isLoggedIn) {
+    return <Navigate to="/dashboard" replace />;
   }
   
   return <>{children}</>;
@@ -73,20 +37,43 @@ function DisabledRoute({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Index />} />
-      <Route path="/login" element={<Login />} />
-      
-      {/* Admin Routes */}
-      <Route path="/admin/users" element={<AdminRoute><UsersManagement /></AdminRoute>} />
-      
-      {/* User Routes */}
-      <Route path="/user/disabled" element={<DisabledRoute><DisabledAccount /></DisabledRoute>} />
-      <Route path="/user/home" element={<UserRoute><UserHome /></UserRoute>} />
-      <Route path="/user/qr" element={<UserRoute><WhatsAppPairing /></UserRoute>} />
-      <Route path="/user/send" element={<UserRoute><SendMessage /></UserRoute>} />
-      <Route path="/user/history" element={<UserRoute><MessageHistory /></UserRoute>} />
-      
-      {/* Catch-all */}
+      {/* Public Routes */}
+      <Route
+        path="/"
+        element={
+          <PublicRoute>
+            <GatewayLogin />
+          </PublicRoute>
+        }
+      />
+
+      {/* Protected Routes */}
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/users"
+        element={
+          <ProtectedRoute>
+            <Users />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/users/:id"
+        element={
+          <ProtectedRoute>
+            <UserDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* 404 */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
@@ -94,15 +81,15 @@ function AppRoutes() {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+    <TooltipProvider>
+      <BrowserRouter>
+        <GatewayAuthProvider>
+          <Toaster />
+          <Sonner />
           <AppRoutes />
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
+        </GatewayAuthProvider>
+      </BrowserRouter>
+    </TooltipProvider>
   </QueryClientProvider>
 );
 
