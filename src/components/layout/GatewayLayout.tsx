@@ -24,9 +24,30 @@ export default function GatewayLayout({ children }: GatewayLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen flex bg-background">
-      {/* Sidebar */}
-      <aside className="w-64 border-r border-border bg-sidebar flex flex-col">
+    <div className="min-h-screen flex flex-col md:flex-row bg-background">
+      {/* Mobile Header */}
+      <header className="md:hidden flex items-center justify-between p-4 border-b border-border bg-sidebar">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <MessageSquare className="h-4 w-4" />
+          </div>
+          <div>
+            <h1 className="font-semibold text-sm text-sidebar-foreground">MadarTech</h1>
+            <p className="text-xs text-muted-foreground">WhatsApp Gateway</p>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-foreground"
+          onClick={handleLogout}
+        >
+          <LogOut className="h-5 w-5" />
+        </Button>
+      </header>
+
+      {/* Desktop Sidebar */}
+      <aside className="hidden md:flex w-64 border-r border-border bg-sidebar flex-col">
         <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -72,11 +93,32 @@ export default function GatewayLayout({ children }: GatewayLayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        <div className="p-8">
+      <main className="flex-1 overflow-auto pb-20 md:pb-0">
+        <div className="p-4 md:p-8">
           {children}
         </div>
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-sidebar border-t border-border flex justify-around items-center h-16 z-50">
+        {navItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) =>
+              cn(
+                'flex flex-col items-center justify-center gap-1 flex-1 h-full text-xs font-medium transition-colors',
+                isActive
+                  ? 'text-primary'
+                  : 'text-muted-foreground'
+              )
+            }
+          >
+            <item.icon className="h-5 w-5" />
+            <span>{item.label}</span>
+          </NavLink>
+        ))}
+      </nav>
     </div>
   );
 }
