@@ -6,6 +6,16 @@ export interface GatewayUser {
   gatewayUrl?: string;
   provisioned: boolean;
   token?: string;
+  tokenMasked?: string;
+  phoneNumber?: string | null;
+  lastStatus?: string | null;
+}
+
+export interface UserStatusResponse {
+  ok: boolean;
+  phoneNumber?: string | null;
+  status?: string;
+  error?: string;
 }
 
 export interface HealthResponse {
