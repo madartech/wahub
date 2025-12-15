@@ -28,7 +28,7 @@ import { GatewayUser } from '@/types/gateway';
 import { Plus, Eye, EyeOff, Loader2, AlertCircle, RefreshCw, Trash2, Copy, Key } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface UserRowProps {
+interface UserItemProps {
   user: GatewayUser;
   navigate: (path: string) => void;
   onDelete: (userId: string, userName: string) => void;
@@ -38,7 +38,110 @@ interface UserRowProps {
   revealingTokenId: string | null;
 }
 
-function UserRow({ user, navigate, onDelete, isDeleting, revealedTokens, onRevealToken, revealingTokenId }: UserRowProps) {
+function UserCard({ user, navigate, onDelete, isDeleting, revealedTokens, onRevealToken, revealingTokenId }: UserItemProps) {
+  const [showToken, setShowToken] = useState(false);
+  const revealedToken = revealedTokens[user.id];
+  const isRevealing = revealingTokenId === user.id;
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Token copied to clipboard');
+  };
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <h3 className="font-semibold text-lg">{user.name}</h3>
+          {user.phoneNumber && (
+            <p className="font-mono text-sm text-muted-foreground">{user.phoneNumber}</p>
+          )}
+        </div>
+        {user.provisioned ? (
+          <Badge className="bg-success text-success-foreground">Provisioned</Badge>
+        ) : (
+          <Badge variant="secondary">Not Provisioned</Badge>
+        )}
+      </div>
+
+      <div className="space-y-2 text-sm">
+        {user.instanceId && (
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Instance:</span>
+            <code className="rounded bg-muted px-2 py-0.5 text-xs">{user.instanceId}</code>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Token:</span>
+          {revealedToken ? (
+            <div className="flex items-center gap-1">
+              <code className="rounded bg-muted px-2 py-0.5 text-xs max-w-[120px] truncate">
+                {showToken ? revealedToken : '••••••••'}
+              </code>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowToken(!showToken)}>
+                {showToken ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+              </Button>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(revealedToken)}>
+                <Copy className="h-3 w-3" />
+              </Button>
+            </div>
+          ) : user.tokenMasked ? (
+            <div className="flex items-center gap-1">
+              <code className="rounded bg-muted px-2 py-0.5 text-xs">{user.tokenMasked}</code>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => onRevealToken(user.id)}
+                disabled={isRevealing}
+              >
+                {isRevealing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Key className="h-3 w-3" />}
+              </Button>
+            </div>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t">
+        <Button variant="outline" size="sm" onClick={() => navigate(`/users/${user.id}`)}>
+          <Eye className="h-4 w-4 mr-1" />
+          View
+        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="outline" size="sm" className="text-destructive hover:text-destructive border-destructive/30">
+              <Trash2 className="h-4 w-4 mr-1" />
+              Delete
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete User</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete <strong>{user.name}</strong>? This will remove the user and their WhatsApp instance. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => onDelete(user.id, user.name)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={isDeleting}
+              >
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </Card>
+  );
+}
+
+function UserRow({ user, navigate, onDelete, isDeleting, revealedTokens, onRevealToken, revealingTokenId }: UserItemProps) {
   const [showToken, setShowToken] = useState(false);
   const revealedToken = revealedTokens[user.id];
   const isRevealing = revealingTokenId === user.id;
@@ -50,7 +153,7 @@ function UserRow({ user, navigate, onDelete, isDeleting, revealedTokens, onRevea
   return (
     <TableRow>
       <TableCell className="font-medium">{user.name}</TableCell>
-      <TableCell className="hidden md:table-cell">
+      <TableCell>
         {revealedToken ? (
           <div className="flex items-center gap-1">
             <code className="rounded bg-muted px-2 py-1 text-xs max-w-[140px] truncate">
@@ -80,7 +183,7 @@ function UserRow({ user, navigate, onDelete, isDeleting, revealedTokens, onRevea
           <span className="text-muted-foreground">—</span>
         )}
       </TableCell>
-      <TableCell className="hidden sm:table-cell">
+      <TableCell>
         {user.phoneNumber ? (
           <span className="font-mono text-sm">{user.phoneNumber}</span>
         ) : (
@@ -94,7 +197,7 @@ function UserRow({ user, navigate, onDelete, isDeleting, revealedTokens, onRevea
           <Badge variant="secondary">No</Badge>
         )}
       </TableCell>
-      <TableCell className="hidden lg:table-cell">
+      <TableCell>
         {user.instanceId ? (
           <code className="rounded bg-muted px-2 py-1 text-sm">{user.instanceId}</code>
         ) : (
@@ -233,22 +336,16 @@ export default function Users() {
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
+          ) : users.length === 0 && !error ? (
+            <div className="text-center text-muted-foreground py-8">
+              No users found. Add your first WhatsApp user.
+            </div>
           ) : (
-            <div className="overflow-x-auto -mx-6 px-6">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead className="hidden md:table-cell">Token</TableHead>
-                    <TableHead className="hidden sm:table-cell">Phone</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="hidden lg:table-cell">Instance</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-3">
                 {users.map((user) => (
-                  <UserRow
+                  <UserCard
                     key={user.id}
                     user={user}
                     navigate={navigate}
@@ -259,16 +356,38 @@ export default function Users() {
                     revealingTokenId={revealingTokenId}
                   />
                 ))}
-                {users.length === 0 && !error && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                      No users found. Add your first WhatsApp user.
-                    </TableCell>
-                  </TableRow>
-                )}
-                </TableBody>
-              </Table>
-            </div>
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Token</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Instance</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((user) => (
+                      <UserRow
+                        key={user.id}
+                        user={user}
+                        navigate={navigate}
+                        onDelete={handleDelete}
+                        isDeleting={isDeleting}
+                        revealedTokens={revealedTokens}
+                        onRevealToken={handleRevealToken}
+                        revealingTokenId={revealingTokenId}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
