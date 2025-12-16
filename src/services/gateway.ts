@@ -30,12 +30,15 @@ export const gatewayService = {
   // Get all users from backend
   async getUsers(): Promise<UsersListResponse> {
     try {
-      const res = await fetch(`${GATEWAY_BASE_URL}/admin/users`, {
+      const res = await fetch(`${GATEWAY_BASE_URL}/admin/users?_t=${Date.now()}`, {
         method: 'GET',
         headers: { 
           'Content-Type': 'application/json',
           'X-Admin-Token': ADMIN_TOKEN,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
         },
+        cache: 'no-store',
       });
       const data = await res.json();
       
