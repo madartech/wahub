@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
 import { GatewayUser } from '@/types/gateway';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Copy, Loader2, QrCode, RefreshCw, CheckCircle, AlertCircle, Eye, EyeOff, Send, Phone } from 'lucide-react';
+import { ArrowLeft, Copy, Loader2, QrCode, RefreshCw, CheckCircle, AlertCircle, Eye, EyeOff, Send, Phone, Key } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -32,6 +32,11 @@ export default function UserDetails() {
   // Send test message state
   const [testPhone, setTestPhone] = useState('');
   const [testMessage, setTestMessage] = useState('');
+
+  // Token reveal state
+  const [revealedToken, setRevealedToken] = useState<string | null>(null);
+  const [showToken, setShowToken] = useState(false);
+  const [isRevealingToken, setIsRevealingToken] = useState(false);
   const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
@@ -66,6 +71,25 @@ export default function UserDetails() {
       title: 'Copied',
       description: `${label} copied to clipboard`,
     });
+  };
+
+  const handleRevealToken = async () => {
+    if (!id) return;
+    setIsRevealingToken(true);
+    try {
+      const result = await gatewayService.getUserToken(id);
+      setRevealedToken(result.token);
+      setShowToken(true);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to reveal token';
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRevealingToken(false);
+    }
   };
 
   const handleProvision = async () => {
@@ -232,13 +256,53 @@ export default function UserDetails() {
               <div className="font-medium">{user.name}</div>
             </div>
 
-            {user.tokenMasked && (
+            {(user.tokenMasked || revealedToken) && (
               <div className="space-y-2">
                 <Label className="text-muted-foreground">Token</Label>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 rounded bg-muted px-3 py-2 text-sm font-mono">
-                    {user.tokenMasked}
-                  </code>
+                  {revealedToken ? (
+                    <>
+                      <code className="flex-1 rounded bg-muted px-3 py-2 text-sm font-mono break-all">
+                        {showToken ? revealedToken : '••••••••••••••••'}
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setShowToken(!showToken)}
+                      >
+                        {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCopy(revealedToken, 'Token')}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <code className="flex-1 rounded bg-muted px-3 py-2 text-sm font-mono">
+                        {user.tokenMasked}
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRevealToken}
+                        disabled={isRevealingToken}
+                      >
+                        {isRevealingToken ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Key className="h-4 w-4 mr-1" />
+                            Reveal
+                          </>
+                        )}
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             )}
