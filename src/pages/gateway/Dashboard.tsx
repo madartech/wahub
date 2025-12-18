@@ -4,13 +4,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { gatewayService } from '@/services/gateway';
-import { Activity, Users, RefreshCw, ArrowRight, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Activity, Users, RefreshCw, ArrowRight, Loader2, Link, Copy } from 'lucide-react';
 export default function Dashboard() {
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [usersCount, setUsersCount] = useState<number | null>(null);
   const [usersError, setUsersError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const gatewayUrl = gatewayService.getGatewayUrl();
+
+  const handleCopyUrl = async () => {
+    await navigator.clipboard.writeText(gatewayUrl);
+    toast({
+      title: 'Copied',
+      description: 'Gateway URL copied to clipboard',
+    });
+  };
   const checkHealth = async () => {
     setIsChecking(true);
     const result = await gatewayService.checkHealth();
@@ -35,6 +46,27 @@ export default function Dashboard() {
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">Gateway status and overview</p>
       </div>
+
+      {/* Gateway URL Card */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <div className="space-y-1">
+            <CardTitle className="text-lg font-medium">Gateway URL</CardTitle>
+            <CardDescription>Endpoint for sending WhatsApp messages</CardDescription>
+          </div>
+          <Link className="h-5 w-5 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 rounded bg-muted px-3 py-2 text-sm font-mono break-all">
+              {gatewayUrl}
+            </code>
+            <Button variant="outline" size="sm" onClick={handleCopyUrl}>
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Health Status Card */}
