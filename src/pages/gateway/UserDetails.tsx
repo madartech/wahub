@@ -282,23 +282,21 @@ export default function UserDetails() {
               </div>
             )}
 
-            {user.gatewayUrl && (
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Gateway URL</Label>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 rounded bg-muted px-3 py-2 text-sm font-mono break-all">
-                    {user.gatewayUrl}
-                  </code>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCopy(user.gatewayUrl || '', 'Gateway URL')}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
+            <div className="space-y-2">
+              <Label className="text-muted-foreground">Gateway URL</Label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 rounded bg-muted px-3 py-2 text-sm font-mono break-all">
+                  {user.gatewayUrl || gatewayService.getGatewayUrl()}
+                </code>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleCopy(user.gatewayUrl || gatewayService.getGatewayUrl(), 'Gateway URL')}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
               </div>
-            )}
+            </div>
 
             {user.provisioned && (
               <Button
