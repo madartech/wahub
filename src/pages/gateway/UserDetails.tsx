@@ -453,8 +453,8 @@ export default function UserDetails() {
           </CardContent>
         </Card>
 
-        {/* Send Test Message Card */}
-        {user.provisioned && (
+        {/* Send Test Message Card - Show for provisioned or connected users */}
+        {(user.provisioned || user.phoneNumber) && (
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="text-base">Send Test Message</CardTitle>
