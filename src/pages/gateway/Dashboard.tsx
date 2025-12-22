@@ -103,14 +103,14 @@ export default function Dashboard() {
             <Users className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
                 {usersError ? <p className="text-sm text-destructive">{usersError}</p> : usersCount === null ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : <>
                     <div className="text-3xl font-bold">{usersCount}</div>
                     <p className="text-sm text-muted-foreground">Registered users</p>
                   </>}
               </div>
-              <Button onClick={() => navigate('/users')} className="w-full sm:w-auto">
+              <Button onClick={() => navigate('/users')} className="w-full lg:w-auto">
                 View Users
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
