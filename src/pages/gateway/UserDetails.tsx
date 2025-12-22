@@ -341,14 +341,43 @@ export default function UserDetails() {
   };
 
   const handleSendTestMessage = async () => {
-    if (!id || !testPhone.trim() || !testMessage.trim()) return;
+    const phone = testPhone.replace(/\D/g, ''); // Strip non-digits
+    
+    if (!phone) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please enter a valid phone number (digits only)',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (!testMessage.trim()) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please enter a message',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setIsSending(true);
     try {
-      const phone = testPhone.replace(/[^\d]/g, ''); // Strip non-digits
-      await gatewayService.testSendMessage(id, {
+      // Get the user's token - use revealed token if available, otherwise fetch it
+      let token = revealedToken;
+      if (!token && id) {
+        const tokenResult = await gatewayService.getUserToken(id);
+        token = tokenResult.token;
+      }
+      
+      if (!token) {
+        throw new Error('Could not retrieve user token');
+      }
+
+      // Use the gateway send endpoint with Bearer token auth
+      await gatewayService.sendMessage(token, {
         to: phone,
-        text: testMessage,
+        text: testMessage.trim(),
       });
       
       toast({
