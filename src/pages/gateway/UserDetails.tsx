@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,11 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
-import { GatewayUser } from '@/types/gateway';
+import { GatewayUser, getConnectionState, SessionStatus, UserConnectionState } from '@/types/gateway';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Copy, Loader2, QrCode, RefreshCw, CheckCircle, AlertCircle, Eye, EyeOff, Send, Phone, Key } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+
+const POLL_INTERVAL = 2000; // 2 seconds
+const MAX_POLL_TIME = 90000; // 90 seconds
 
 export default function UserDetails() {
   const { id } = useParams<{ id: string }>();
@@ -21,24 +24,62 @@ export default function UserDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Status state
+  // Session status state - single source of truth
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>('UNKNOWN');
+  const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
+
+  // Derive connection state from session status
+  const connectionState = getConnectionState(sessionStatus);
+
+  // Status refresh state
   const [isRefreshingStatus, setIsRefreshingStatus] = useState(false);
 
   // Provisioning state
   const [isProvisioning, setIsProvisioning] = useState(false);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const pollStartTimeRef = useRef<number>(0);
+
+  // QR state
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [isLoadingQR, setIsLoadingQR] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const qrPollingRef = useRef<NodeJS.Timeout | null>(null);
 
   // Send test message state
   const [testPhone, setTestPhone] = useState('');
   const [testMessage, setTestMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
 
   // Token reveal state
   const [revealedToken, setRevealedToken] = useState<string | null>(null);
   const [showToken, setShowToken] = useState(false);
   const [isRevealingToken, setIsRevealingToken] = useState(false);
-  const [isSending, setIsSending] = useState(false);
 
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearTimeout(pollingRef.current);
+      if (qrPollingRef.current) clearTimeout(qrPollingRef.current);
+    };
+  }, []);
+
+  // Fetch user status - single source of truth
+  const fetchStatus = useCallback(async (userId: string) => {
+    const result = await gatewayService.getUserStatus(userId);
+    if (result.ok && result.session) {
+      setSessionStatus(result.session.status);
+      if (result.phoneNumber) {
+        setPhoneNumber(result.phoneNumber);
+      }
+      return result.session.status;
+    }
+    // On error, set to UNKNOWN
+    setSessionStatus('UNKNOWN');
+    return 'UNKNOWN' as SessionStatus;
+  }, []);
+
+  // Fetch user data and status
   useEffect(() => {
     const fetchUser = async () => {
       if (!id) {
@@ -53,6 +94,8 @@ export default function UserDetails() {
         const foundUser = result.users.find(u => u.id === id);
         if (foundUser) {
           setUser(foundUser);
+          // Fetch live status
+          await fetchStatus(id);
         } else {
           setError('User not found');
         }
@@ -63,7 +106,7 @@ export default function UserDetails() {
     };
 
     fetchUser();
-  }, [id, navigate]);
+  }, [id, navigate, fetchStatus]);
 
   const handleCopy = async (text: string, label: string) => {
     await navigator.clipboard.writeText(text);
@@ -92,6 +135,38 @@ export default function UserDetails() {
     }
   };
 
+  // Poll status until it reaches target state or timeout
+  const pollStatus = useCallback(async (userId: string, targetStates: SessionStatus[]) => {
+    const elapsed = Date.now() - pollStartTimeRef.current;
+    if (elapsed >= MAX_POLL_TIME) {
+      setIsProvisioning(false);
+      toast({
+        title: 'Timeout',
+        description: 'Provisioning took too long. Please try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const status = await fetchStatus(userId);
+    if (targetStates.includes(status)) {
+      setIsProvisioning(false);
+      if (status === 'SCAN_QR_CODE') {
+        // Auto-open QR modal
+        handleOpenQrModal();
+      } else if (status === 'WORKING' || status === 'READY') {
+        toast({
+          title: 'Connected',
+          description: 'WhatsApp is now connected!',
+        });
+      }
+      return;
+    }
+
+    // Continue polling
+    pollingRef.current = setTimeout(() => pollStatus(userId, targetStates), POLL_INTERVAL);
+  }, [fetchStatus, toast]);
+
   const handleProvision = async () => {
     if (!id) return;
 
@@ -101,48 +176,143 @@ export default function UserDetails() {
     try {
       const provisionResult = await gatewayService.provisionUser(id);
       
-      // Update local user state
+      // Update local user state with instance info
       setUser(prev => prev ? {
         ...prev,
-        provisioned: true,
         instanceId: provisionResult.instanceId,
         port: provisionResult.port,
       } : null);
 
-      // Get QR code
-      setIsLoadingQR(true);
-      const qrResult = await gatewayService.getQRCode(id);
-      setQrDataUrl(qrResult.dataUrl);
+      // Start polling for status change
+      pollStartTimeRef.current = Date.now();
+      pollingRef.current = setTimeout(
+        () => pollStatus(id, ['SCAN_QR_CODE', 'WORKING', 'READY']), 
+        POLL_INTERVAL
+      );
 
-      toast({
-        title: 'Provisioned',
-        description: 'WhatsApp instance is ready. Scan the QR code.',
-      });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to provision user';
       setError(errorMessage);
-    } finally {
       setIsProvisioning(false);
+    }
+  };
+
+  // QR polling - check if status becomes WORKING/READY
+  const pollQrStatus = useCallback(async (userId: string) => {
+    const status = await fetchStatus(userId);
+    if (status === 'WORKING' || status === 'READY') {
+      // Connected! Close modal
+      setShowQrModal(false);
+      setQrDataUrl(null);
+      toast({
+        title: 'Connected',
+        description: 'WhatsApp is now connected!',
+      });
+      return;
+    }
+
+    if (status === 'SCAN_QR_CODE') {
+      // Still waiting for scan, continue polling
+      qrPollingRef.current = setTimeout(() => pollQrStatus(userId), POLL_INTERVAL);
+    } else {
+      // Status changed to something else, close modal
+      setShowQrModal(false);
+      setQrDataUrl(null);
+    }
+  }, [fetchStatus, toast]);
+
+  const handleOpenQrModal = async () => {
+    if (!id) return;
+
+    setShowQrModal(true);
+    setIsLoadingQR(true);
+    setQrError(null);
+    setQrDataUrl(null);
+
+    try {
+      const qrResult = await gatewayService.getQRCode(id);
+      
+      if (qrResult.alreadyConnected) {
+        // Already connected, refresh status and close
+        await fetchStatus(id);
+        setShowQrModal(false);
+        toast({
+          title: 'Already Connected',
+          description: 'WhatsApp is already connected.',
+        });
+        return;
+      }
+
+      if (!qrResult.ok || !qrResult.dataUrl) {
+        setQrError(qrResult.error || 'QR not available');
+        return;
+      }
+
+      setQrDataUrl(qrResult.dataUrl);
+
+      // Start polling for connection
+      qrPollingRef.current = setTimeout(() => pollQrStatus(id), POLL_INTERVAL);
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to get QR code';
+      setQrError(errorMessage);
+    } finally {
       setIsLoadingQR(false);
     }
+  };
+
+  const handleCloseQrModal = () => {
+    if (qrPollingRef.current) {
+      clearTimeout(qrPollingRef.current);
+      qrPollingRef.current = null;
+    }
+    setShowQrModal(false);
+    setQrDataUrl(null);
+    setQrError(null);
   };
 
   const handleRefreshQR = async () => {
     if (!id) return;
 
+    // Clear existing polling
+    if (qrPollingRef.current) {
+      clearTimeout(qrPollingRef.current);
+      qrPollingRef.current = null;
+    }
+
     setIsLoadingQR(true);
-    setError(null);
+    setQrError(null);
 
     try {
       const qrResult = await gatewayService.getQRCode(id);
+      
+      if (qrResult.alreadyConnected) {
+        await fetchStatus(id);
+        setShowQrModal(false);
+        toast({
+          title: 'Already Connected',
+          description: 'WhatsApp is already connected.',
+        });
+        return;
+      }
+
+      if (!qrResult.ok || !qrResult.dataUrl) {
+        setQrError(qrResult.error || 'QR not available');
+        return;
+      }
+
       setQrDataUrl(qrResult.dataUrl);
+
+      // Resume polling
+      qrPollingRef.current = setTimeout(() => pollQrStatus(id), POLL_INTERVAL);
+
       toast({
         title: 'QR Refreshed',
         description: 'New QR code generated',
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to refresh QR';
-      setError(errorMessage);
+      setQrError(errorMessage);
     } finally {
       setIsLoadingQR(false);
     }
@@ -153,11 +323,10 @@ export default function UserDetails() {
 
     setIsRefreshingStatus(true);
     try {
-      const result = await gatewayService.getUserStatus(id);
-      setUser(prev => prev ? { ...prev, phoneNumber: result.phoneNumber } : null);
+      const status = await fetchStatus(id);
       toast({
         title: 'Status Refreshed',
-        description: result.phoneNumber ? `Phone: ${result.phoneNumber}` : 'No phone linked yet',
+        description: `Status: ${status}${phoneNumber ? `, Phone: ${phoneNumber}` : ''}`,
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to get status';
@@ -198,6 +367,27 @@ export default function UserDetails() {
       setIsSending(false);
     }
   };
+
+  // Helper to get status badge
+  const getStatusBadge = (state: UserConnectionState) => {
+    switch (state) {
+      case 'connected':
+        return <Badge className="bg-success text-success-foreground">Connected</Badge>;
+      case 'scan_qr':
+        return <Badge className="bg-warning text-warning-foreground">Scan QR</Badge>;
+      case 'provisioning':
+        return <Badge variant="secondary">Provisioning...</Badge>;
+      case 'not_provisioned':
+      default:
+        return <Badge variant="secondary">Not Provisioned</Badge>;
+    }
+  };
+
+  // Determine button visibility based on connection state
+  const showProvisionButton = connectionState === 'not_provisioned' && !isProvisioning;
+  const showScanQrButton = connectionState === 'scan_qr' && !isProvisioning;
+  const showConnectedInfo = connectionState === 'connected';
+  const showSendTestMessage = connectionState === 'connected';
 
   if (isLoading) {
     return (
@@ -307,24 +497,21 @@ export default function UserDetails() {
               </div>
             )}
 
-            {user.phoneNumber && (
+            {phoneNumber && (
               <div className="space-y-2">
                 <Label className="text-muted-foreground">Phone Number</Label>
                 <div className="flex items-center gap-2">
                   <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">{user.phoneNumber}</span>
+                  <span className="font-medium">{phoneNumber}</span>
                 </div>
               </div>
             )}
 
             <div className="space-y-2">
-              <Label className="text-muted-foreground">Provisioned</Label>
-              <div>
-                {user.provisioned ? (
-                  <Badge className="bg-success text-success-foreground">Yes</Badge>
-                ) : (
-                  <Badge variant="secondary">No</Badge>
-                )}
+              <Label className="text-muted-foreground">Status</Label>
+              <div className="flex items-center gap-2">
+                {getStatusBadge(connectionState)}
+                <span className="text-xs text-muted-foreground">({sessionStatus})</span>
               </div>
             </div>
 
@@ -362,17 +549,15 @@ export default function UserDetails() {
               </div>
             </div>
 
-            {user.provisioned && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefreshStatus}
-                disabled={isRefreshingStatus}
-              >
-                <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshingStatus ? 'animate-spin' : ''}`} />
-                Refresh Status
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefreshStatus}
+              disabled={isRefreshingStatus}
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshingStatus ? 'animate-spin' : ''}`} />
+              Refresh Status
+            </Button>
           </CardContent>
         </Card>
 
@@ -381,80 +566,104 @@ export default function UserDetails() {
           <CardHeader>
             <CardTitle>WhatsApp Provisioning</CardTitle>
             <CardDescription>
-              {user.provisioned 
-                ? 'Manage WhatsApp connection' 
-                : 'Provision WhatsApp instance and scan QR'}
+              {showConnectedInfo 
+                ? 'WhatsApp is connected' 
+                : connectionState === 'scan_qr'
+                ? 'Scan QR code to connect'
+                : connectionState === 'provisioning' || isProvisioning
+                ? 'Provisioning in progress...'
+                : 'Provision WhatsApp instance'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {!user.provisioned && (
+            {/* Provisioning Button - only when not provisioned */}
+            {showProvisionButton && (
               <Button 
                 onClick={handleProvision} 
                 disabled={isProvisioning}
                 className="w-full"
               >
-                {isProvisioning ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Provisioning...
-                  </>
-                ) : (
-                  <>
-                    <QrCode className="mr-2 h-4 w-4" />
-                    Provision & Generate QR
-                  </>
-                )}
+                <QrCode className="mr-2 h-4 w-4" />
+                Provision & Generate QR
               </Button>
             )}
 
-            {(user.provisioned || qrDataUrl) && (
-              <div className="space-y-4">
-                {user.provisioned && !qrDataUrl && (
-                  <div className="flex items-center gap-2 text-success">
-                    <CheckCircle className="h-5 w-5" />
-                    <span className="font-medium">Instance provisioned</span>
+            {/* Provisioning in progress */}
+            {(isProvisioning || connectionState === 'provisioning') && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>Provisioning... please wait</span>
+              </div>
+            )}
+
+            {/* Scan QR Button - only when status is SCAN_QR_CODE */}
+            {showScanQrButton && (
+              <Button 
+                onClick={handleOpenQrModal}
+                className="w-full"
+              >
+                <QrCode className="mr-2 h-4 w-4" />
+                Scan QR Code
+              </Button>
+            )}
+
+            {/* Connected Info */}
+            {showConnectedInfo && (
+              <div className="flex items-center gap-2 text-success">
+                <CheckCircle className="h-5 w-5" />
+                <span className="font-medium">WhatsApp Connected</span>
+              </div>
+            )}
+
+            {/* QR Modal */}
+            {showQrModal && (
+              <div className="flex flex-col items-center gap-4 p-4 border rounded-lg bg-muted/30">
+                {isLoadingQR ? (
+                  <div className="flex items-center justify-center h-64 w-64">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                   </div>
-                )}
-
-                {/* QR Code Display */}
-                {qrDataUrl && (
-                  <div className="flex flex-col items-center gap-4 p-4 border rounded-lg bg-muted/30">
-                    {isLoadingQR ? (
-                      <div className="flex items-center justify-center h-64 w-64">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                      </div>
-                    ) : (
-                      <img 
-                        src={qrDataUrl} 
-                        alt="WhatsApp QR Code" 
-                        className="h-64 w-64 rounded-lg border bg-white"
-                      />
-                    )}
-
-                    <p className="text-sm text-center text-muted-foreground">
-                      Scan this QR in WhatsApp → Linked devices → Link a device
-                    </p>
+                ) : qrError ? (
+                  <div className="text-center py-8">
+                    <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
+                    <p className="text-sm text-destructive">{qrError}</p>
                   </div>
-                )}
+                ) : qrDataUrl ? (
+                  <img 
+                    src={qrDataUrl} 
+                    alt="WhatsApp QR Code" 
+                    className="h-64 w-64 rounded-lg border bg-white"
+                  />
+                ) : null}
 
-                {user.provisioned && (
+                <p className="text-sm text-center text-muted-foreground">
+                  Scan this QR in WhatsApp → Linked devices → Link a device
+                </p>
+
+                <div className="flex gap-2">
                   <Button 
                     variant="outline" 
+                    size="sm"
                     onClick={handleRefreshQR}
                     disabled={isLoadingQR}
-                    className="w-full"
                   >
                     <RefreshCw className={`mr-2 h-4 w-4 ${isLoadingQR ? 'animate-spin' : ''}`} />
-                    {qrDataUrl ? 'Refresh QR' : 'Get QR Code'}
+                    Refresh QR
                   </Button>
-                )}
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={handleCloseQrModal}
+                  >
+                    Close
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Send Test Message Card - Show for provisioned or connected users */}
-        {(user.provisioned || user.phoneNumber) && (
+        {/* Send Test Message Card - Only show when connected */}
+        {showSendTestMessage && (
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="text-base">Send Test Message</CardTitle>

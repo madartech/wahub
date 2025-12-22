@@ -6,7 +6,8 @@ import {
   CreateUserResponse,
   ProvisionResponse,
   QRResponse,
-  UserStatusResponse
+  UserStatusResponse,
+  SessionStatus
 } from '@/types/gateway';
 
 const GATEWAY_BASE_URL = 'https://gateway.madarivms.com';
@@ -120,6 +121,7 @@ export const gatewayService = {
       instanceId: data.instanceId,
       port: data.port,
       qrEndpoint: data.qrEndpoint,
+      status: data.status as SessionStatus,
     };
   },
 
@@ -135,35 +137,65 @@ export const gatewayService = {
     const data = await res.json();
     
     if (!res.ok) {
-      throw new Error(data.error || data.message || `HTTP ${res.status}`);
+      // Return error response instead of throwing
+      return {
+        ok: false,
+        error: data.error || data.message || `HTTP ${res.status}`,
+        status: data.status as SessionStatus,
+      };
+    }
+    
+    // Check if already connected
+    if (data.alreadyConnected) {
+      return {
+        ok: true,
+        alreadyConnected: true,
+        status: data.status as SessionStatus,
+      };
     }
     
     return {
       ok: true,
       dataUrl: data.dataUrl,
+      status: data.status as SessionStatus,
     };
   },
 
-  // Get user status
+  // Get user status - returns full session info
   async getUserStatus(userId: string): Promise<UserStatusResponse> {
-    const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/status`, {
-      method: 'GET',
-      headers: { 
-        'X-Admin-Token': ADMIN_TOKEN,
-      },
-    });
-    
-    const data = await res.json();
-    
-    if (!res.ok) {
-      throw new Error(data.error || data.message || `HTTP ${res.status}`);
+    try {
+      const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/status`, {
+        method: 'GET',
+        headers: { 
+          'X-Admin-Token': ADMIN_TOKEN,
+        },
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        return {
+          ok: false,
+          error: data.error || data.message || `HTTP ${res.status}`,
+          session: { status: 'UNKNOWN' as SessionStatus },
+        };
+      }
+      
+      return {
+        ok: true,
+        session: {
+          status: (data.session?.status || data.status || 'UNKNOWN') as SessionStatus,
+        },
+        me: data.me || null,
+        phoneNumber: data.me?.id || data.phoneNumber || null,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : 'Failed to get status',
+        session: { status: 'UNKNOWN' as SessionStatus },
+      };
     }
-    
-    return {
-      ok: true,
-      phoneNumber: data.phoneNumber,
-      status: data.status,
-    };
   },
 
   // Test send message (admin endpoint)
