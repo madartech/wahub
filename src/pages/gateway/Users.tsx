@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,18 +24,33 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
-import { GatewayUser } from '@/types/gateway';
+import { GatewayUser, getConnectionState, UserConnectionState } from '@/types/gateway';
 import { Plus, Eye, Loader2, AlertCircle, RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface UserItemProps {
   user: GatewayUser;
+  connectionState: UserConnectionState;
   navigate: (path: string) => void;
   onDelete: (userId: string, userName: string) => void;
   isDeleting: boolean;
 }
 
-function UserCard({ user, navigate, onDelete, isDeleting }: UserItemProps) {
+function getStatusBadge(state: UserConnectionState) {
+  switch (state) {
+    case 'connected':
+      return <Badge className="bg-success text-success-foreground">Connected</Badge>;
+    case 'scan_qr':
+      return <Badge className="bg-warning text-warning-foreground">Scan QR</Badge>;
+    case 'provisioning':
+      return <Badge variant="secondary">Provisioning...</Badge>;
+    case 'not_provisioned':
+    default:
+      return <Badge variant="secondary">Not Provisioned</Badge>;
+  }
+}
+
+function UserCard({ user, connectionState, navigate, onDelete, isDeleting }: UserItemProps) {
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between mb-3">
@@ -45,11 +60,7 @@ function UserCard({ user, navigate, onDelete, isDeleting }: UserItemProps) {
             <p className="font-mono text-sm text-muted-foreground">{user.phoneNumber}</p>
           )}
         </div>
-        {user.provisioned ? (
-          <Badge className="bg-success text-success-foreground">Provisioned</Badge>
-        ) : (
-          <Badge variant="secondary">Not Provisioned</Badge>
-        )}
+        {getStatusBadge(connectionState)}
       </div>
 
       <div className="space-y-2 text-sm">
@@ -97,7 +108,7 @@ function UserCard({ user, navigate, onDelete, isDeleting }: UserItemProps) {
   );
 }
 
-function UserRow({ user, navigate, onDelete, isDeleting }: UserItemProps) {
+function UserRow({ user, connectionState, navigate, onDelete, isDeleting }: UserItemProps) {
   return (
     <TableRow>
       <TableCell className="font-medium">{user.name}</TableCell>
@@ -109,11 +120,7 @@ function UserRow({ user, navigate, onDelete, isDeleting }: UserItemProps) {
         )}
       </TableCell>
       <TableCell>
-        {user.provisioned ? (
-          <Badge className="bg-success text-success-foreground">Yes</Badge>
-        ) : (
-          <Badge variant="secondary">No</Badge>
-        )}
+        {getStatusBadge(connectionState)}
       </TableCell>
       <TableCell>
         {user.instanceId ? (
@@ -165,24 +172,48 @@ export default function Users() {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const fetchUsers = async () => {
+  const fetchUsersWithStatus = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    
+    // First get the users list
     const result = await gatewayService.getUsers();
-    if (result.ok) {
-      setUsers(result.users);
-    } else {
+    if (!result.ok) {
       setError(result.error || 'Failed to fetch users');
+      setIsLoading(false);
+      return;
     }
+
+    // Then fetch status for each user in parallel
+    const usersWithStatus = await Promise.all(
+      result.users.map(async (user) => {
+        try {
+          const statusResult = await gatewayService.getUserStatus(user.id);
+          return {
+            ...user,
+            sessionStatus: statusResult.session?.status || 'UNKNOWN',
+            phoneNumber: statusResult.phoneNumber || user.phoneNumber,
+            me: statusResult.me,
+          } as GatewayUser;
+        } catch {
+          return {
+            ...user,
+            sessionStatus: 'UNKNOWN',
+          } as GatewayUser;
+        }
+      })
+    );
+
+    setUsers(usersWithStatus);
     setIsLoading(false);
-  };
+  }, []);
 
   const handleDelete = async (userId: string, userName: string) => {
     setIsDeleting(true);
     try {
       await gatewayService.deleteUser(userId);
       toast.success(`Deleted ${userName}`);
-      fetchUsers();
+      fetchUsersWithStatus();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete user';
       toast.error(errorMessage);
@@ -192,8 +223,8 @@ export default function Users() {
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    fetchUsersWithStatus();
+  }, [fetchUsersWithStatus]);
 
   return (
     <div className="space-y-6">
@@ -203,7 +234,7 @@ export default function Users() {
           <p className="text-sm text-muted-foreground">Manage WhatsApp users and provisioning</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={fetchUsers} disabled={isLoading}>
+          <Button variant="outline" size="sm" onClick={fetchUsersWithStatus} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline ml-2">Refresh</span>
           </Button>
@@ -245,6 +276,7 @@ export default function Users() {
                   <UserCard
                     key={user.id}
                     user={user}
+                    connectionState={getConnectionState(user.sessionStatus)}
                     navigate={navigate}
                     onDelete={handleDelete}
                     isDeleting={isDeleting}
@@ -269,6 +301,7 @@ export default function Users() {
                       <UserRow
                         key={user.id}
                         user={user}
+                        connectionState={getConnectionState(user.sessionStatus)}
                         navigate={navigate}
                         onDelete={handleDelete}
                         isDeleting={isDeleting}
