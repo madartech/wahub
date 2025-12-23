@@ -9,8 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Phone, RefreshCw, Loader2, Copy, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-const API_BASE_URL = 'https://api.madarivms.com';
+import { API_BASE_URL } from '@/config/api';
 
 export default function WhatsAppPairing() {
   const { user } = useAuth();

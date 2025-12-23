@@ -9,9 +9,7 @@ import {
   UserStatusResponse,
   SessionStatus
 } from '@/types/gateway';
-
-const GATEWAY_BASE_URL = 'https://gateway.madarivms.com';
-const ADMIN_TOKEN = '@dmin142242';
+import { GATEWAY_BASE_URL, ADMIN_TOKEN } from '@/config/gateway';
 
 export const gatewayService = {
   // Health check
