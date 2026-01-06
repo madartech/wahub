@@ -360,14 +360,7 @@ export default function Users() {
   };
 
   useEffect(() => {
-    fetchUsersWithStatus(false); // Initial load - show skeleton
-    
-    // Auto-refresh every 30 seconds without skeleton
-    const interval = setInterval(() => {
-      fetchUsersWithStatus(true);
-    }, 30000);
-    
-    return () => clearInterval(interval);
+    fetchUsersWithStatus(false);
   }, [fetchUsersWithStatus]);
 
   return (
