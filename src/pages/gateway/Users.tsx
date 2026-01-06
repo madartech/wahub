@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -268,8 +268,14 @@ export default function Users() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  
+  // Track the current fetch operation to prevent race conditions
+  const fetchIdRef = useRef(0);
 
   const fetchUsersWithStatus = useCallback(async (isAutoRefresh = false) => {
+    // Increment fetch ID to invalidate any in-flight status fetches
+    const currentFetchId = ++fetchIdRef.current;
+    
     // Only show skeleton on initial load, not auto-refresh
     if (!isAutoRefresh) {
       setIsLoading(true);
@@ -278,6 +284,10 @@ export default function Users() {
 
     // First get the users list
     const result = await gatewayService.getUsers();
+    
+    // Check if this fetch is still valid
+    if (currentFetchId !== fetchIdRef.current) return;
+    
     if (!result.ok) {
       setError(result.error || 'Failed to fetch users');
       setIsLoading(false);
@@ -309,9 +319,16 @@ export default function Users() {
       await Promise.all(
         Array.from({ length: Math.min(concurrency, usersToFetch.length) }, async () => {
           while (index < usersToFetch.length) {
+            // Check if this fetch is still valid before each request
+            if (currentFetchId !== fetchIdRef.current) return;
+            
             const user = usersToFetch[index++];
             try {
               const statusResult = await gatewayService.getUserStatus(user.id);
+              
+              // Check again after the async call
+              if (currentFetchId !== fetchIdRef.current) return;
+              
               setUsers((prev) =>
                 prev.map((u) =>
                   u.id === user.id
@@ -325,7 +342,7 @@ export default function Users() {
                 )
               );
             } catch {
-              // keep existing status/phone
+              // keep existing status/phone - don't update on error
             }
           }
         })
