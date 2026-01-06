@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -25,7 +26,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
 import { GatewayUser, getConnectionState, UserConnectionState } from '@/types/gateway';
-import { Plus, Eye, Loader2, AlertCircle, RefreshCw, Trash2 } from 'lucide-react';
+import { Plus, Eye, Loader2, AlertCircle, RefreshCw, Trash2, Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface UserItemProps {
@@ -33,6 +34,7 @@ interface UserItemProps {
   connectionState: UserConnectionState;
   navigate: (path: string) => void;
   onDelete: (userId: string, userName: string) => void;
+  onUpdateName: (userId: string, newName: string) => Promise<void>;
   isDeleting: boolean;
 }
 
@@ -50,12 +52,104 @@ function getStatusBadge(state: UserConnectionState) {
   }
 }
 
-function UserCard({ user, connectionState, navigate, onDelete, isDeleting }: UserItemProps) {
+function EditableName({ 
+  name, 
+  userId, 
+  onUpdateName 
+}: { 
+  name: string; 
+  userId: string; 
+  onUpdateName: (userId: string, newName: string) => Promise<void>;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(name);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!editValue.trim() || editValue.trim() === name) {
+      setIsEditing(false);
+      setEditValue(name);
+      return;
+    }
+    
+    setIsSaving(true);
+    try {
+      await onUpdateName(userId, editValue.trim());
+      setIsEditing(false);
+    } catch {
+      setEditValue(name);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setEditValue(name);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSave();
+    } else if (e.key === 'Escape') {
+      handleCancel();
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <div className="flex items-center gap-1">
+        <Input
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className="h-7 w-32 text-sm"
+          autoFocus
+          disabled={isSaving}
+        />
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-6 w-6" 
+          onClick={handleSave}
+          disabled={isSaving}
+        >
+          {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-6 w-6" 
+          onClick={handleCancel}
+          disabled={isSaving}
+        >
+          <X className="h-3 w-3" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1 group">
+      <span className="font-medium">{name}</span>
+      <Button 
+        variant="ghost" 
+        size="icon" 
+        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" 
+        onClick={() => setIsEditing(true)}
+      >
+        <Pencil className="h-3 w-3" />
+      </Button>
+    </div>
+  );
+}
+
+function UserCard({ user, connectionState, navigate, onDelete, onUpdateName, isDeleting }: UserItemProps) {
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between mb-3">
         <div>
-          <h3 className="font-semibold text-lg">{user.name}</h3>
+          <EditableName name={user.name} userId={user.id} onUpdateName={onUpdateName} />
           {user.phoneNumber && (
             <p className="font-mono text-sm text-muted-foreground">{user.phoneNumber}</p>
           )}
@@ -108,10 +202,12 @@ function UserCard({ user, connectionState, navigate, onDelete, isDeleting }: Use
   );
 }
 
-function UserRow({ user, connectionState, navigate, onDelete, isDeleting }: UserItemProps) {
+function UserRow({ user, connectionState, navigate, onDelete, onUpdateName, isDeleting }: UserItemProps) {
   return (
     <TableRow>
-      <TableCell className="font-medium">{user.name}</TableCell>
+      <TableCell>
+        <EditableName name={user.name} userId={user.id} onUpdateName={onUpdateName} />
+      </TableCell>
       <TableCell>
         {user.phoneNumber ? (
           <span className="font-mono text-sm">{user.phoneNumber}</span>
@@ -222,6 +318,18 @@ export default function Users() {
     }
   };
 
+  const handleUpdateName = async (userId: string, newName: string) => {
+    try {
+      await gatewayService.updateUser(userId, newName);
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, name: newName } : u));
+      toast.success('Name updated');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update name';
+      toast.error(errorMessage);
+      throw err;
+    }
+  };
+
   useEffect(() => {
     fetchUsersWithStatus();
   }, [fetchUsersWithStatus]);
@@ -279,6 +387,7 @@ export default function Users() {
                     connectionState={getConnectionState(user.sessionStatus)}
                     navigate={navigate}
                     onDelete={handleDelete}
+                    onUpdateName={handleUpdateName}
                     isDeleting={isDeleting}
                   />
                 ))}
@@ -304,6 +413,7 @@ export default function Users() {
                         connectionState={getConnectionState(user.sessionStatus)}
                         navigate={navigate}
                         onDelete={handleDelete}
+                        onUpdateName={handleUpdateName}
                         isDeleting={isDeleting}
                       />
                     ))}
