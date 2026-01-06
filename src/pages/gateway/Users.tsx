@@ -332,6 +332,13 @@ export default function Users() {
 
   useEffect(() => {
     fetchUsersWithStatus();
+    
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      fetchUsersWithStatus();
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, [fetchUsersWithStatus]);
 
   return (
