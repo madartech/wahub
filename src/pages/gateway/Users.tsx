@@ -262,6 +262,22 @@ function UserRow({ user, connectionState, navigate, onDelete, onUpdateName, isDe
   );
 }
 
+const DISPLAY_NAMES_KEY = 'gateway_user_display_names';
+
+function getStoredDisplayNames(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(DISPLAY_NAMES_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function saveDisplayName(userId: string, name: string) {
+  const stored = getStoredDisplayNames();
+  stored[userId] = name;
+  localStorage.setItem(DISPLAY_NAMES_KEY, JSON.stringify(stored));
+}
+
 export default function Users() {
   const [users, setUsers] = useState<GatewayUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -295,12 +311,14 @@ export default function Users() {
     }
 
     // Show users immediately; keep any previously-known status/phone while we refresh in the background
+    const storedNames = getStoredDisplayNames();
     setUsers((prev) => {
       const prevById = new Map(prev.map((u) => [u.id, u] as const));
       return result.users.map((user) => {
         const prevUser = prevById.get(user.id);
         return {
           ...user,
+          name: storedNames[user.id] || user.name,
           sessionStatus: prevUser?.sessionStatus ?? user.sessionStatus ?? 'UNKNOWN',
           phoneNumber: prevUser?.phoneNumber ?? (user as GatewayUser).phoneNumber ?? null,
           me: prevUser?.me ?? (user as GatewayUser).me ?? null,
@@ -366,6 +384,7 @@ export default function Users() {
 
   const handleUpdateName = async (userId: string, newName: string) => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, name: newName } : u));
+    saveDisplayName(userId, newName);
     toast.success('Display name updated');
   };
 
