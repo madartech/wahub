@@ -275,7 +275,7 @@ export default function Users() {
       setIsLoading(true);
     }
     setError(null);
-    
+
     // First get the users list
     const result = await gatewayService.getUsers();
     if (!result.ok) {
@@ -284,33 +284,53 @@ export default function Users() {
       return;
     }
 
-    // Show users immediately with UNKNOWN status
-    const initialUsers = result.users.map(user => ({
-      ...user,
-      sessionStatus: user.sessionStatus || 'UNKNOWN',
-    } as GatewayUser));
-    
-    setUsers(initialUsers);
+    // Show users immediately; keep any previously-known status/phone while we refresh in the background
+    setUsers((prev) => {
+      const prevById = new Map(prev.map((u) => [u.id, u] as const));
+      return result.users.map((user) => {
+        const prevUser = prevById.get(user.id);
+        return {
+          ...user,
+          sessionStatus: prevUser?.sessionStatus ?? user.sessionStatus ?? 'UNKNOWN',
+          phoneNumber: prevUser?.phoneNumber ?? (user as GatewayUser).phoneNumber ?? null,
+          me: prevUser?.me ?? (user as GatewayUser).me ?? null,
+        } as GatewayUser;
+      });
+    });
+
     setIsLoading(false);
 
-    // Then fetch statuses progressively and update as they arrive
-    result.users.forEach(async (user) => {
-      try {
-        const statusResult = await gatewayService.getUserStatus(user.id);
-        setUsers(prev => prev.map(u => 
-          u.id === user.id 
-            ? {
-                ...u,
-                sessionStatus: statusResult.session?.status || 'UNKNOWN',
-                phoneNumber: statusResult.phoneNumber || u.phoneNumber,
-                me: statusResult.me,
-              }
-            : u
-        ));
-      } catch {
-        // Status fetch failed - keep user with current status
-      }
-    });
+    // Fetch statuses with limited concurrency so slow/non-provisioned users don't delay the rest
+    void (async () => {
+      const usersToFetch = [...result.users];
+      const concurrency = 4;
+      let index = 0;
+
+      await Promise.all(
+        Array.from({ length: Math.min(concurrency, usersToFetch.length) }, async () => {
+          while (index < usersToFetch.length) {
+            const user = usersToFetch[index++];
+            try {
+              const statusResult = await gatewayService.getUserStatus(user.id);
+              setUsers((prev) =>
+                prev.map((u) =>
+                  u.id === user.id
+                    ? {
+                        ...u,
+                        sessionStatus: statusResult.session?.status || 'UNKNOWN',
+                        phoneNumber: statusResult.phoneNumber || u.phoneNumber,
+                        me: statusResult.me,
+                      }
+                    : u
+                )
+              );
+            } catch {
+              // keep existing status/phone
+            }
+          }
+        })
+      );
+    })();
   }, []);
 
   const handleDelete = async (userId: string, userName: string) => {
@@ -318,7 +338,7 @@ export default function Users() {
     try {
       await gatewayService.deleteUser(userId);
       toast.success(`Deleted ${userName}`);
-      fetchUsersWithStatus();
+      fetchUsersWithStatus(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete user';
       toast.error(errorMessage);
