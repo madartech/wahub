@@ -192,11 +192,18 @@ export const gatewayService = {
         me: data.me || null,
         phoneNumber: data.me?.id || data.phoneNumber || null,
       };
-    } catch {
+    } catch (error) {
       clearTimeout(timeoutId);
+      const errorMessage =
+        error instanceof DOMException && error.name === 'AbortError'
+          ? 'Request timed out'
+          : error instanceof Error
+            ? error.message
+            : 'Failed to get status';
+
       return {
         ok: false,
-        error: 'Request timed out',
+        error: errorMessage,
         session: { status: 'UNKNOWN' as SessionStatus },
       };
     }
