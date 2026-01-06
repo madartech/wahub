@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { Plus, RefreshCw, Key, Power, Loader2, Copy, Users, Trash2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -224,14 +225,16 @@ export default function UsersManagement() {
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Total Users</CardDescription>
-              <CardTitle className="text-3xl">{users.length}</CardTitle>
+              <CardTitle className="text-3xl">
+                {isLoading ? <Skeleton className="h-9 w-10 inline-block" /> : users.length}
+              </CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Active Users</CardDescription>
               <CardTitle className="text-3xl text-success">
-                {users.filter((u) => u.status === 'active').length}
+                {isLoading ? <Skeleton className="h-9 w-10 inline-block" /> : users.filter((u) => u.status === 'active').length}
               </CardTitle>
             </CardHeader>
           </Card>
@@ -239,7 +242,7 @@ export default function UsersManagement() {
             <CardHeader className="pb-2">
               <CardDescription>Online Sessions</CardDescription>
               <CardTitle className="text-3xl text-primary">
-                {users.filter((u) => u.sessionStatus === 'online').length}
+                {isLoading ? <Skeleton className="h-9 w-10 inline-block" /> : users.filter((u) => u.sessionStatus === 'online').length}
               </CardTitle>
             </CardHeader>
           </Card>
@@ -252,8 +255,43 @@ export default function UsersManagement() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Username</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>API Key</TableHead>
+                      <TableHead>Session</TableHead>
+                      <TableHead className="text-right">Messages</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[...Array(5)].map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Skeleton className="h-5 w-28" />
+                            <Skeleton className="h-6 w-6" />
+                          </div>
+                        </TableCell>
+                        <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-5 w-8 ml-auto" /></TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Skeleton className="h-8 w-8" />
+                            <Skeleton className="h-8 w-8" />
+                            <Skeleton className="h-8 w-8" />
+                            <Skeleton className="h-8 w-8" />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             ) : (
               <div className="overflow-x-auto">

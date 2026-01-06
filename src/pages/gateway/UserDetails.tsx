@@ -9,6 +9,7 @@ import { gatewayService } from '@/services/gateway';
 import { GatewayUser, getConnectionState, SessionStatus, UserConnectionState } from '@/types/gateway';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Copy, Loader2, QrCode, RefreshCw, CheckCircle, AlertCircle, Eye, EyeOff, Send, Phone, Key } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -420,8 +421,51 @@ export default function UserDetails() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/users')}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Users
+          </Button>
+        </div>
+
+        <div className="space-y-2">
+          <Skeleton className="h-9 w-48" />
+          <Skeleton className="h-5 w-64" />
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* User Info Skeleton */}
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-40" />
+              <Skeleton className="h-4 w-56" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-5 w-48" />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Provisioning Skeleton */}
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-4 w-64" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-6 w-24 rounded-full" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+              <Skeleton className="h-10 w-32" />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }

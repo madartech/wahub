@@ -27,6 +27,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
 import { GatewayUser, getConnectionState, UserConnectionState } from '@/types/gateway';
 import { Plus, Eye, Loader2, AlertCircle, RefreshCw, Trash2, Pencil, Check, X } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
 interface UserItemProps {
@@ -376,9 +377,60 @@ export default function Users() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
+            <>
+              {/* Mobile Card Skeleton */}
+              <div className="md:hidden space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <Card key={i} className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="space-y-2">
+                        <Skeleton className="h-5 w-32" />
+                        <Skeleton className="h-4 w-24" />
+                      </div>
+                      <Skeleton className="h-6 w-20 rounded-full" />
+                    </div>
+                    <div className="flex items-center justify-between mt-4">
+                      <Skeleton className="h-4 w-16" />
+                      <Skeleton className="h-5 w-28" />
+                    </div>
+                    <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t">
+                      <Skeleton className="h-8 w-16" />
+                      <Skeleton className="h-8 w-18" />
+                    </div>
+                  </Card>
+                ))}
+              </div>
+              {/* Desktop Table Skeleton */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Instance</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[...Array(5)].map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-28" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-36" /></TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Skeleton className="h-8 w-8" />
+                            <Skeleton className="h-8 w-8" />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           ) : users.length === 0 && !error ? (
             <div className="text-center text-muted-foreground py-8">
               No users found. Add your first WhatsApp user.
