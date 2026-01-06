@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { gatewayService } from '@/services/gateway';
 import { useToast } from '@/hooks/use-toast';
-import { Activity, Users, RefreshCw, ArrowRight, Loader2, Link, Copy } from 'lucide-react';
+import { Activity, Users, RefreshCw, ArrowRight, Link, Copy } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 export default function Dashboard() {
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(false);
@@ -105,7 +106,12 @@ export default function Dashboard() {
           <CardContent>
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
-                {usersError ? <p className="text-sm text-destructive">{usersError}</p> : usersCount === null ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : <>
+                {usersError ? <p className="text-sm text-destructive">{usersError}</p> : usersCount === null ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-9 w-12" />
+                    <Skeleton className="h-4 w-28" />
+                  </div>
+                ) : <>
                     <div className="text-3xl font-bold">{usersCount}</div>
                     <p className="text-sm text-muted-foreground">Registered users</p>
                   </>}
