@@ -570,19 +570,20 @@ export default function UserDetails() {
                 </code>
                 <Button
                   variant="outline"
-                  size="sm"
                   onClick={() => handleCopy(user.gatewayUrl || gatewayService.getGatewayUrl(), 'Gateway URL')}
+                  className="h-11 min-h-[44px] px-3"
                 >
-                  <Copy className="h-4 w-4" />
+                  <Copy className="h-4 w-4 mr-2 sm:mr-0" />
+                  <span className="sm:hidden">Copy</span>
                 </Button>
               </div>
             </div>
 
             <Button
               variant="outline"
-              size="sm"
               onClick={handleRefreshStatus}
               disabled={isRefreshingStatus}
+              className="h-11 min-h-[44px] w-full sm:w-auto"
             >
               <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshingStatus ? 'animate-spin' : ''}`} />
               Refresh Status
@@ -610,9 +611,9 @@ export default function UserDetails() {
               <Button 
                 onClick={handleProvision} 
                 disabled={isProvisioning}
-                className="w-full"
+                className="w-full h-12 text-base min-h-[44px]"
               >
-                <QrCode className="mr-2 h-4 w-4" />
+                <QrCode className="mr-2 h-5 w-5" />
                 Provision & Generate QR
               </Button>
             )}
@@ -629,9 +630,9 @@ export default function UserDetails() {
             {showScanQrButton && (
               <Button 
                 onClick={handleOpenQrModal}
-                className="w-full"
+                className="w-full h-12 text-base min-h-[44px]"
               >
-                <QrCode className="mr-2 h-4 w-4" />
+                <QrCode className="mr-2 h-5 w-5" />
                 Scan QR Code
               </Button>
             )}
@@ -646,9 +647,9 @@ export default function UserDetails() {
 
             {/* QR Modal */}
             {showQrModal && (
-              <div className="flex flex-col items-center gap-4 p-4 border rounded-lg bg-muted/30">
+              <div className="flex flex-col items-center gap-4 p-4 border rounded-lg bg-muted/30 max-h-[80vh] overflow-y-auto">
                 {isLoadingQR ? (
-                  <div className="flex items-center justify-center h-64 w-64">
+                  <div className="flex items-center justify-center h-48 w-48 sm:h-64 sm:w-64">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                   </div>
                 ) : qrError ? (
@@ -660,28 +661,28 @@ export default function UserDetails() {
                   <img 
                     src={qrDataUrl} 
                     alt="WhatsApp QR Code" 
-                    className="h-64 w-64 rounded-lg border bg-white"
+                    className="w-full max-w-[256px] aspect-square rounded-lg border bg-white"
                   />
                 ) : null}
 
-                <p className="text-sm text-center text-muted-foreground">
+                <p className="text-sm text-center text-muted-foreground px-2">
                   Scan this QR in WhatsApp → Linked devices → Link a device
                 </p>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   <Button 
                     variant="outline" 
-                    size="sm"
                     onClick={handleRefreshQR}
                     disabled={isLoadingQR}
+                    className="h-11 min-h-[44px]"
                   >
                     <RefreshCw className={`mr-2 h-4 w-4 ${isLoadingQR ? 'animate-spin' : ''}`} />
                     Refresh QR
                   </Button>
                   <Button 
                     variant="ghost" 
-                    size="sm"
                     onClick={handleCloseQrModal}
+                    className="h-11 min-h-[44px]"
                   >
                     Close
                   </Button>
@@ -699,31 +700,31 @@ export default function UserDetails() {
               <CardDescription>Send a WhatsApp message using this user's token</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col gap-3">
                 <Input
                   placeholder="Phone (e.g. 966501234567)"
                   value={testPhone}
                   onChange={(e) => setTestPhone(e.target.value)}
-                  className="sm:w-48"
+                  className="h-12 text-base"
                 />
                 <Textarea
                   placeholder="Message..."
                   value={testMessage}
                   onChange={(e) => setTestMessage(e.target.value)}
-                  className="flex-1 min-h-[40px] max-h-24"
-                  rows={1}
+                  className="min-h-[80px] max-h-32 text-base"
+                  rows={2}
                 />
                 <Button
                   onClick={handleSendTestMessage}
                   disabled={isSending || !testPhone.trim() || !testMessage.trim()}
-                  className="sm:w-auto"
+                  className="h-12 text-base min-h-[44px]"
                 >
                   {isSending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
                     <>
-                      <Send className="h-4 w-4 mr-2" />
-                      Send
+                      <Send className="h-5 w-5 mr-2" />
+                      Send Test Message
                     </>
                   )}
                 </Button>

@@ -4,6 +4,7 @@ import { useGatewayAuth } from '@/contexts/GatewayAuthContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { LayoutDashboard, Users, LogOut, MessageSquare } from 'lucide-react';
+import { InstallButton } from '@/components/InstallButton';
 
 interface GatewayLayoutProps {
   children: ReactNode;
@@ -24,22 +25,22 @@ export default function GatewayLayout({ children }: GatewayLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-background">
+    <div className="min-h-[100dvh] flex flex-col md:flex-row bg-background">
       {/* Mobile Header */}
-      <header className="md:hidden flex items-center justify-between p-4 border-b border-border bg-sidebar">
+      <header className="md:hidden flex items-center justify-between p-3 border-b border-border bg-sidebar safe-top">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <MessageSquare className="h-4 w-4" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <MessageSquare className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="font-semibold text-sm text-sidebar-foreground">MadarTech</h1>
-            <p className="text-xs text-muted-foreground">WhatsApp Gateway</p>
+            <h1 className="font-semibold text-sm text-sidebar-foreground">WA Hub</h1>
+            <p className="text-xs text-muted-foreground">Gateway Admin</p>
           </div>
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="text-muted-foreground hover:text-foreground"
+          className="h-11 w-11 text-muted-foreground hover:text-foreground"
           onClick={handleLogout}
         >
           <LogOut className="h-5 w-5" />
@@ -49,14 +50,20 @@ export default function GatewayLayout({ children }: GatewayLayoutProps) {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 border-r border-border bg-sidebar flex-col">
         <div className="p-6 border-b border-sidebar-border">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <MessageSquare className="h-5 w-5" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <MessageSquare className="h-5 w-5" />
+              </div>
+              <div>
+                <h1 className="font-semibold text-sidebar-foreground">WA Hub</h1>
+                <p className="text-xs text-muted-foreground">Gateway Admin</p>
+              </div>
             </div>
-            <div>
-              <h1 className="font-semibold text-sidebar-foreground">MadarTech</h1>
-              <p className="text-xs text-muted-foreground">WhatsApp Gateway</p>
-            </div>
+          </div>
+          {/* Install Button */}
+          <div className="mt-4">
+            <InstallButton />
           </div>
         </div>
 
@@ -100,14 +107,14 @@ export default function GatewayLayout({ children }: GatewayLayoutProps) {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-sidebar border-t border-border flex justify-around items-center h-16 z-50">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-sidebar border-t border-border flex justify-around items-center h-16 z-50 safe-bottom">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             className={({ isActive }) =>
               cn(
-                'flex flex-col items-center justify-center gap-1 flex-1 h-full text-xs font-medium transition-colors',
+                'flex flex-col items-center justify-center gap-1 flex-1 h-full min-h-[44px] text-xs font-medium transition-colors active:bg-sidebar-accent/50',
                 isActive
                   ? 'text-primary'
                   : 'text-muted-foreground'

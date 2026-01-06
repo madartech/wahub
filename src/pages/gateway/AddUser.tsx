@@ -63,14 +63,14 @@ export default function AddUser() {
         </Alert>
       )}
 
-      <Card className="max-w-md">
+      <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Create User</CardTitle>
           <CardDescription>Enter the user's name to create their gateway account</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">User Name</Label>
+            <Label htmlFor="name" className="text-sm font-medium">User Name</Label>
             <Input
               id="name"
               placeholder="e.g., John Doe"
@@ -78,17 +78,18 @@ export default function AddUser() {
               onChange={(e) => setUserName(e.target.value)}
               disabled={isCreating}
               onKeyDown={(e) => e.key === 'Enter' && handleCreateUser()}
+              className="h-12 text-base"
             />
           </div>
 
           <Button 
             onClick={handleCreateUser} 
             disabled={isCreating || !userName.trim()}
-            className="w-full"
+            className="w-full h-12 text-base"
           >
             {isCreating ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 Creating...
               </>
             ) : (
