@@ -348,15 +348,8 @@ export default function Users() {
   };
 
   const handleUpdateName = async (userId: string, newName: string) => {
-    try {
-      await gatewayService.updateUser(userId, newName);
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, name: newName } : u));
-      toast.success('Name updated');
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update name';
-      toast.error(errorMessage);
-      throw err;
-    }
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, name: newName } : u));
+    toast.success('Display name updated');
   };
 
   useEffect(() => {
