@@ -269,8 +269,11 @@ export default function Users() {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const fetchUsersWithStatus = useCallback(async () => {
-    setIsLoading(true);
+  const fetchUsersWithStatus = useCallback(async (isAutoRefresh = false) => {
+    // Only show skeleton on initial load, not auto-refresh
+    if (!isAutoRefresh) {
+      setIsLoading(true);
+    }
     setError(null);
     
     // First get the users list
@@ -281,28 +284,33 @@ export default function Users() {
       return;
     }
 
-    // Then fetch status for each user in parallel
-    const usersWithStatus = await Promise.all(
-      result.users.map(async (user) => {
-        try {
-          const statusResult = await gatewayService.getUserStatus(user.id);
-          return {
-            ...user,
-            sessionStatus: statusResult.session?.status || 'UNKNOWN',
-            phoneNumber: statusResult.phoneNumber || user.phoneNumber,
-            me: statusResult.me,
-          } as GatewayUser;
-        } catch {
-          return {
-            ...user,
-            sessionStatus: 'UNKNOWN',
-          } as GatewayUser;
-        }
-      })
-    );
-
-    setUsers(usersWithStatus);
+    // Show users immediately with UNKNOWN status
+    const initialUsers = result.users.map(user => ({
+      ...user,
+      sessionStatus: user.sessionStatus || 'UNKNOWN',
+    } as GatewayUser));
+    
+    setUsers(initialUsers);
     setIsLoading(false);
+
+    // Then fetch statuses progressively and update as they arrive
+    result.users.forEach(async (user) => {
+      try {
+        const statusResult = await gatewayService.getUserStatus(user.id);
+        setUsers(prev => prev.map(u => 
+          u.id === user.id 
+            ? {
+                ...u,
+                sessionStatus: statusResult.session?.status || 'UNKNOWN',
+                phoneNumber: statusResult.phoneNumber || u.phoneNumber,
+                me: statusResult.me,
+              }
+            : u
+        ));
+      } catch {
+        // Status fetch failed - keep user with current status
+      }
+    });
   }, []);
 
   const handleDelete = async (userId: string, userName: string) => {
@@ -332,11 +340,11 @@ export default function Users() {
   };
 
   useEffect(() => {
-    fetchUsersWithStatus();
+    fetchUsersWithStatus(false); // Initial load - show skeleton
     
-    // Auto-refresh every 30 seconds
+    // Auto-refresh every 30 seconds without skeleton
     const interval = setInterval(() => {
-      fetchUsersWithStatus();
+      fetchUsersWithStatus(true);
     }, 30000);
     
     return () => clearInterval(interval);
@@ -350,7 +358,7 @@ export default function Users() {
           <p className="text-sm text-muted-foreground">Manage WhatsApp users and provisioning</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={fetchUsersWithStatus} disabled={isLoading}>
+          <Button variant="outline" size="sm" onClick={() => fetchUsersWithStatus(false)} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline ml-2">Refresh</span>
           </Button>

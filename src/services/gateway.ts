@@ -159,16 +159,21 @@ export const gatewayService = {
     };
   },
 
-  // Get user status - returns full session info
+  // Get user status - returns full session info (with 5s timeout)
   async getUserStatus(userId: string): Promise<UserStatusResponse> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
     try {
       const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/status`, {
         method: 'GET',
         headers: { 
           'X-Admin-Token': ADMIN_TOKEN,
         },
+        signal: controller.signal,
       });
       
+      clearTimeout(timeoutId);
       const data = await res.json();
       
       if (!res.ok) {
@@ -187,10 +192,11 @@ export const gatewayService = {
         me: data.me || null,
         phoneNumber: data.me?.id || data.phoneNumber || null,
       };
-    } catch (error) {
+    } catch {
+      clearTimeout(timeoutId);
       return {
         ok: false,
-        error: error instanceof Error ? error.message : 'Failed to get status',
+        error: 'Request timed out',
         session: { status: 'UNKNOWN' as SessionStatus },
       };
     }
