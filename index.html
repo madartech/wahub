@@ -2,15 +2,22 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>WA Hub - Messaging Dashboard</title>
     <meta name="version" content="1.0.1" />
     <link rel="icon" href="/favicon.png" type="image/png">
     <meta name="description" content="Manage your WhatsApp messaging gateway with ease. Send texts via API.">
     <meta name="author" content="WA Gateway" />
 
-    
-    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#0d9488" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="WA Hub" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/rM1GTALE7yUP4zILDXtkUkcHb5r2/social-images/social-1766400357071-wahub.png">
 
@@ -18,21 +25,22 @@
     <meta name="twitter:site" content="@WAGateway" />
     <meta name="twitter:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/rM1GTALE7yUP4zILDXtkUkcHb5r2/social-images/social-1766400357071-wahub.png">
     
-  
-  
-  
-  
-  
-  
-  
-  <meta property="og:title" content="WA Hub - Messaging Dashboard">
-  <meta name="twitter:title" content="WA Hub - Messaging Dashboard">
-  <meta property="og:description" content="Manage your WhatsApp messaging gateway with ease. Send texts via API.">
-  <meta name="twitter:description" content="Manage your WhatsApp messaging gateway with ease. Send texts via API.">
-</head>
+    <meta property="og:title" content="WA Hub - Messaging Dashboard">
+    <meta name="twitter:title" content="WA Hub - Messaging Dashboard">
+    <meta property="og:description" content="Manage your WhatsApp messaging gateway with ease. Send texts via API.">
+    <meta name="twitter:description" content="Manage your WhatsApp messaging gateway with ease. Send texts via API.">
+  </head>
 
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Register Service Worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>
