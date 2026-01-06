@@ -248,6 +248,26 @@ export const gatewayService = {
     return `${GATEWAY_BASE_URL}/gateway/whatsapp/send`;
   },
 
+  // Update user name
+  async updateUser(userId: string, name: string): Promise<{ ok: boolean; name: string }> {
+    const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}`, {
+      method: 'PATCH',
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Admin-Token': ADMIN_TOKEN,
+      },
+      body: JSON.stringify({ name }),
+    });
+    
+    const data = await res.json();
+    
+    if (!res.ok) {
+      throw new Error(data.error || data.message || `HTTP ${res.status}`);
+    }
+    
+    return { ok: true, name: data.name || name };
+  },
+
   // Delete user
   async deleteUser(userId: string): Promise<{ ok: boolean }> {
     const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}`, {
