@@ -29,6 +29,7 @@ import { GatewayUser, getConnectionState, UserConnectionState } from '@/types/ga
 import { Plus, Eye, Loader2, AlertCircle, RefreshCw, Trash2, Pencil, Check, X } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
+import { PullToRefresh } from '@/components/PullToRefresh';
 
 interface UserItemProps {
   user: GatewayUser;
@@ -392,147 +393,154 @@ export default function Users() {
     fetchUsersWithStatus(false);
   }, [fetchUsersWithStatus]);
 
+  const handlePullRefresh = useCallback(async () => {
+    await fetchUsersWithStatus(true);
+    toast.success('Refreshed');
+  }, [fetchUsersWithStatus]);
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Users</h1>
-          <p className="text-sm text-muted-foreground">Manage WhatsApp users and provisioning</p>
+    <PullToRefresh onRefresh={handlePullRefresh}>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Users</h1>
+            <p className="text-sm text-muted-foreground">Manage WhatsApp users and provisioning</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => fetchUsersWithStatus(false)} disabled={isLoading}>
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline ml-2">Refresh</span>
+            </Button>
+            <Button size="sm" onClick={() => navigate('/users/new')}>
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline ml-2">Add User</span>
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => fetchUsersWithStatus(false)} disabled={isLoading}>
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline ml-2">Refresh</span>
-          </Button>
-          <Button size="sm" onClick={() => navigate('/users/new')}>
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline ml-2">Add User</span>
-          </Button>
-        </div>
-      </div>
 
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>All Users</CardTitle>
-          <CardDescription>
-            {users.length} user{users.length !== 1 ? 's' : ''} registered
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <>
-              {/* Mobile Card Skeleton */}
-              <div className="md:hidden space-y-3">
-                {[...Array(3)].map((_, i) => (
-                  <Card key={i} className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="space-y-2">
-                        <Skeleton className="h-5 w-32" />
-                        <Skeleton className="h-4 w-24" />
+        <Card>
+          <CardHeader>
+            <CardTitle>All Users</CardTitle>
+            <CardDescription>
+              {users.length} user{users.length !== 1 ? 's' : ''} registered
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <>
+                {/* Mobile Card Skeleton */}
+                <div className="md:hidden space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <Card key={i} className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="space-y-2">
+                          <Skeleton className="h-5 w-32" />
+                          <Skeleton className="h-4 w-24" />
+                        </div>
+                        <Skeleton className="h-6 w-20 rounded-full" />
                       </div>
-                      <Skeleton className="h-6 w-20 rounded-full" />
-                    </div>
-                    <div className="flex items-center justify-between mt-4">
-                      <Skeleton className="h-4 w-16" />
-                      <Skeleton className="h-5 w-28" />
-                    </div>
-                    <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t">
-                      <Skeleton className="h-8 w-16" />
-                      <Skeleton className="h-8 w-18" />
-                    </div>
-                  </Card>
-                ))}
-              </div>
-              {/* Desktop Table Skeleton */}
-              <div className="hidden md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Instance</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {[...Array(5)].map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-5 w-28" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                        <TableCell><Skeleton className="h-5 w-36" /></TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Skeleton className="h-8 w-8" />
-                            <Skeleton className="h-8 w-8" />
-                          </div>
-                        </TableCell>
+                      <div className="flex items-center justify-between mt-4">
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-5 w-28" />
+                      </div>
+                      <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t">
+                        <Skeleton className="h-8 w-16" />
+                        <Skeleton className="h-8 w-18" />
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+                {/* Desktop Table Skeleton */}
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Instance</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {[...Array(5)].map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                          <TableCell><Skeleton className="h-5 w-28" /></TableCell>
+                          <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                          <TableCell><Skeleton className="h-5 w-36" /></TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Skeleton className="h-8 w-8" />
+                              <Skeleton className="h-8 w-8" />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
+            ) : users.length === 0 && !error ? (
+              <div className="text-center text-muted-foreground py-8">
+                No users found. Add your first WhatsApp user.
               </div>
-            </>
-          ) : users.length === 0 && !error ? (
-            <div className="text-center text-muted-foreground py-8">
-              No users found. Add your first WhatsApp user.
-            </div>
-          ) : (
-            <>
-              {/* Mobile Card View */}
-              <div className="md:hidden space-y-3">
-                {users.map((user) => (
-                  <UserCard
-                    key={user.id}
-                    user={user}
-                    connectionState={getConnectionState(user.sessionStatus)}
-                    navigate={navigate}
-                    onDelete={handleDelete}
-                    onUpdateName={handleUpdateName}
-                    isDeleting={isDeleting}
-                  />
-                ))}
-              </div>
+            ) : (
+              <>
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-3">
+                  {users.map((user) => (
+                    <UserCard
+                      key={user.id}
+                      user={user}
+                      connectionState={getConnectionState(user.sessionStatus)}
+                      navigate={navigate}
+                      onDelete={handleDelete}
+                      onUpdateName={handleUpdateName}
+                      isDeleting={isDeleting}
+                    />
+                  ))}
+                </div>
 
-              {/* Desktop Table View */}
-              <div className="hidden md:block overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Instance</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.map((user) => (
-                      <UserRow
-                        key={user.id}
-                        user={user}
-                        connectionState={getConnectionState(user.sessionStatus)}
-                        navigate={navigate}
-                        onDelete={handleDelete}
-                        onUpdateName={handleUpdateName}
-                        isDeleting={isDeleting}
-                      />
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+                {/* Desktop Table View */}
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Instance</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {users.map((user) => (
+                        <UserRow
+                          key={user.id}
+                          user={user}
+                          connectionState={getConnectionState(user.sessionStatus)}
+                          navigate={navigate}
+                          onDelete={handleDelete}
+                          onUpdateName={handleUpdateName}
+                          isDeleting={isDeleting}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </PullToRefresh>
   );
 }
