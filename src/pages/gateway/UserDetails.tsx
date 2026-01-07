@@ -16,6 +16,17 @@ import { Textarea } from '@/components/ui/textarea';
 const POLL_INTERVAL = 2000; // 2 seconds
 const MAX_POLL_TIME = 90000; // 90 seconds
 
+const DISPLAY_NAMES_KEY = 'gateway_user_display_names';
+
+function getStoredDisplayName(userId: string): string | null {
+  try {
+    const stored = JSON.parse(localStorage.getItem(DISPLAY_NAMES_KEY) || '{}');
+    return stored[userId] || null;
+  } catch {
+    return null;
+  }
+}
+
 export default function UserDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -94,7 +105,12 @@ export default function UserDetails() {
       if (result.ok) {
         const foundUser = result.users.find(u => u.id === id);
         if (foundUser) {
-          setUser(foundUser);
+          // Apply stored display name if exists
+          const storedName = getStoredDisplayName(id);
+          setUser({
+            ...foundUser,
+            name: storedName || foundUser.name,
+          });
           // Fetch live status
           await fetchStatus(id);
         } else {
