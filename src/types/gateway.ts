@@ -5,6 +5,7 @@ export type SessionStatus =
   | 'SCAN_QR_CODE' 
   | 'STARTING' 
   | 'STOPPED' 
+  | 'FAILED'
   | 'UNKNOWN';
 
 // Derived UI state from session status

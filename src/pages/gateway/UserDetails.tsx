@@ -9,6 +9,7 @@ import { gatewayService } from '@/services/gateway';
 import { GatewayUser, getConnectionState, SessionStatus, UserConnectionState } from '@/types/gateway';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Copy, Loader2, QrCode, RefreshCw, CheckCircle, AlertCircle, Eye, EyeOff, Send, Phone, Key } from 'lucide-react';
+import EmergencyResetSection from '@/components/gateway/EmergencyResetSection';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -434,6 +435,9 @@ export default function UserDetails() {
   const showScanQrButton = connectionState === 'scan_qr' && !isProvisioning;
   const showConnectedInfo = connectionState === 'connected';
   const showSendTestMessage = connectionState === 'connected';
+  
+  // Check if this is the default user (instanceId == "default")
+  const isDefaultUser = user?.instanceId === 'default';
 
   if (isLoading) {
     return (
@@ -791,6 +795,18 @@ export default function UserDetails() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Emergency Reset Section - Only for default user */}
+        {isDefaultUser && id && (
+          <EmergencyResetSection 
+            userId={id} 
+            onStatusChange={(status) => {
+              setSessionStatus(status);
+              // Refresh status to get phone number etc
+              fetchStatus(id);
+            }}
+          />
         )}
       </div>
     </div>
