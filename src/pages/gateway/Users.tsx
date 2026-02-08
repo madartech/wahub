@@ -26,18 +26,22 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
 import { GatewayUser, getConnectionState, UserConnectionState } from '@/types/gateway';
-import { Plus, Eye, Loader2, AlertCircle, RefreshCw, Trash2, Pencil, Check, X } from 'lucide-react';
+import { Plus, Eye, Loader2, AlertCircle, RefreshCw, Trash2, Pencil, Check, X, Unplug, RotateCcw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { PullToRefresh } from '@/components/PullToRefresh';
+import EmergencyResetDialog from '@/components/gateway/EmergencyResetDialog';
 
 interface UserItemProps {
   user: GatewayUser;
   connectionState: UserConnectionState;
   navigate: (path: string) => void;
   onDelete: (userId: string, userName: string) => void;
+  onDisconnect: (userId: string, userName: string) => void;
+  onReset: (userId: string, userName: string) => void;
   onUpdateName: (userId: string, newName: string) => Promise<void>;
   isDeleting: boolean;
+  isDisconnecting: boolean;
 }
 
 function getStatusBadge(state: UserConnectionState) {
@@ -146,7 +150,9 @@ function EditableName({
   );
 }
 
-function UserCard({ user, connectionState, navigate, onDelete, onUpdateName, isDeleting }: UserItemProps) {
+function UserCard({ user, connectionState, navigate, onDelete, onDisconnect, onReset, onUpdateName, isDeleting, isDisconnecting }: UserItemProps) {
+  const isConnected = connectionState === 'connected';
+  
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between mb-3">
@@ -168,11 +174,35 @@ function UserCard({ user, connectionState, navigate, onDelete, onUpdateName, isD
         )}
       </div>
 
-      <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t">
+      <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t flex-wrap">
         <Button variant="outline" size="sm" onClick={() => navigate(`/users/${user.id}`)}>
           <Eye className="h-4 w-4 mr-1" />
           View
         </Button>
+        
+        {isConnected && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="text-warning hover:text-warning border-warning/30"
+            onClick={() => onDisconnect(user.id, user.name)}
+            disabled={isDisconnecting}
+          >
+            {isDisconnecting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Unplug className="h-4 w-4 mr-1" />}
+            Disconnect
+          </Button>
+        )}
+        
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="text-destructive hover:text-destructive border-destructive/30"
+          onClick={() => onReset(user.id, user.name)}
+        >
+          <RotateCcw className="h-4 w-4 mr-1" />
+          Reset
+        </Button>
+
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="outline" size="sm" className="text-destructive hover:text-destructive border-destructive/30">
@@ -204,7 +234,9 @@ function UserCard({ user, connectionState, navigate, onDelete, onUpdateName, isD
   );
 }
 
-function UserRow({ user, connectionState, navigate, onDelete, onUpdateName, isDeleting }: UserItemProps) {
+function UserRow({ user, connectionState, navigate, onDelete, onDisconnect, onReset, onUpdateName, isDeleting, isDisconnecting }: UserItemProps) {
+  const isConnected = connectionState === 'connected';
+  
   return (
     <TableRow>
       <TableCell>
@@ -232,6 +264,30 @@ function UserRow({ user, connectionState, navigate, onDelete, onUpdateName, isDe
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/users/${user.id}`)}>
             <Eye className="h-4 w-4" />
           </Button>
+          
+          {isConnected && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 text-warning hover:text-warning" 
+              onClick={() => onDisconnect(user.id, user.name)}
+              disabled={isDisconnecting}
+              title="Disconnect"
+            >
+              {isDisconnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unplug className="h-4 w-4" />}
+            </Button>
+          )}
+          
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 text-destructive hover:text-destructive" 
+            onClick={() => onReset(user.id, user.name)}
+            title="Reset + Reconnect"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
@@ -283,26 +339,26 @@ export default function Users() {
   const [users, setUsers] = useState<GatewayUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  
+  // Reset dialog state
+  const [resetTarget, setResetTarget] = useState<{ userId: string; userName: string } | null>(null);
   
   // Track the current fetch operation to prevent race conditions
   const fetchIdRef = useRef(0);
 
   const fetchUsersWithStatus = useCallback(async (isAutoRefresh = false) => {
-    // Increment fetch ID to invalidate any in-flight status fetches
     const currentFetchId = ++fetchIdRef.current;
     
-    // Only show skeleton on initial load, not auto-refresh
     if (!isAutoRefresh) {
       setIsLoading(true);
     }
     setError(null);
 
-    // First get the users list
     const result = await gatewayService.getUsers();
     
-    // Check if this fetch is still valid
     if (currentFetchId !== fetchIdRef.current) return;
     
     if (!result.ok) {
@@ -311,7 +367,6 @@ export default function Users() {
       return;
     }
 
-    // Show users immediately; keep any previously-known status/phone while we refresh in the background
     const storedNames = getStoredDisplayNames();
     setUsers((prev) => {
       const prevById = new Map(prev.map((u) => [u.id, u] as const));
@@ -329,7 +384,6 @@ export default function Users() {
 
     setIsLoading(false);
 
-    // Fetch statuses with limited concurrency so slow/non-provisioned users don't delay the rest
     void (async () => {
       const usersToFetch = [...result.users];
       const concurrency = 4;
@@ -338,14 +392,12 @@ export default function Users() {
       await Promise.all(
         Array.from({ length: Math.min(concurrency, usersToFetch.length) }, async () => {
           while (index < usersToFetch.length) {
-            // Check if this fetch is still valid before each request
             if (currentFetchId !== fetchIdRef.current) return;
             
             const user = usersToFetch[index++];
             try {
               const statusResult = await gatewayService.getUserStatus(user.id);
               
-              // Check again after the async call
               if (currentFetchId !== fetchIdRef.current) return;
               
               setUsers((prev) =>
@@ -361,7 +413,7 @@ export default function Users() {
                 )
               );
             } catch {
-              // keep existing status/phone - don't update on error
+              // keep existing status/phone
             }
           }
         })
@@ -383,6 +435,24 @@ export default function Users() {
     }
   };
 
+  const handleDisconnect = async (userId: string, userName: string) => {
+    setIsDisconnecting(true);
+    try {
+      await gatewayService.disconnectUser(userId);
+      toast.success(`Disconnected ${userName}`);
+      fetchUsersWithStatus(true);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to disconnect';
+      toast.error(errorMessage);
+    } finally {
+      setIsDisconnecting(false);
+    }
+  };
+
+  const handleReset = (userId: string, userName: string) => {
+    setResetTarget({ userId, userName });
+  };
+
   const handleUpdateName = async (userId: string, newName: string) => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, name: newName } : u));
     saveDisplayName(userId, newName);
@@ -399,6 +469,7 @@ export default function Users() {
   }, [fetchUsersWithStatus]);
 
   return (
+    <>
     <PullToRefresh onRefresh={handlePullRefresh}>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -503,8 +574,11 @@ export default function Users() {
                       connectionState={getConnectionState(user.sessionStatus)}
                       navigate={navigate}
                       onDelete={handleDelete}
+                      onDisconnect={handleDisconnect}
+                      onReset={handleReset}
                       onUpdateName={handleUpdateName}
                       isDeleting={isDeleting}
+                      isDisconnecting={isDisconnecting}
                     />
                   ))}
                 </div>
@@ -529,8 +603,11 @@ export default function Users() {
                           connectionState={getConnectionState(user.sessionStatus)}
                           navigate={navigate}
                           onDelete={handleDelete}
+                          onDisconnect={handleDisconnect}
+                          onReset={handleReset}
                           onUpdateName={handleUpdateName}
                           isDeleting={isDeleting}
+                          isDisconnecting={isDisconnecting}
                         />
                       ))}
                     </TableBody>
@@ -542,5 +619,17 @@ export default function Users() {
         </Card>
       </div>
     </PullToRefresh>
+
+    {/* Reset + Reconnect Dialog */}
+    {resetTarget && (
+      <EmergencyResetDialog
+        open={!!resetTarget}
+        onOpenChange={(open) => { if (!open) setResetTarget(null); }}
+        userId={resetTarget.userId}
+        userName={resetTarget.userName}
+        onSuccess={() => fetchUsersWithStatus(true)}
+      />
+    )}
+    </>
   );
 }

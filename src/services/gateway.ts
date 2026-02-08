@@ -257,6 +257,44 @@ export const gatewayService = {
     };
   },
 
+  // Disconnect user session
+  async disconnectUser(userId: string): Promise<{ ok: boolean }> {
+    const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/disconnect`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Admin-Token': ADMIN_TOKEN,
+      },
+    });
+    
+    const data = await res.json();
+    
+    if (!res.ok) {
+      throw new Error(data.error || data.message || `HTTP ${res.status}`);
+    }
+    
+    return { ok: true };
+  },
+
+  // Reset user session (re-provision)
+  async resetUser(userId: string): Promise<{ ok: boolean }> {
+    const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/reset`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Admin-Token': ADMIN_TOKEN,
+      },
+    });
+    
+    const data = await res.json();
+    
+    if (!res.ok) {
+      throw new Error(data.error || data.message || `HTTP ${res.status}`);
+    }
+    
+    return { ok: true };
+  },
+
   getGatewayUrl(): string {
     return `${GATEWAY_BASE_URL}/gateway/whatsapp/send`;
   },
