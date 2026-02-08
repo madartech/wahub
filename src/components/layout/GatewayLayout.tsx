@@ -144,7 +144,9 @@ export default function GatewayLayout({ children }: GatewayLayoutProps) {
       {/* Emergency Reset Dialog */}
       <EmergencyResetDialog 
         open={showEmergencyReset} 
-        onOpenChange={setShowEmergencyReset} 
+        onOpenChange={setShowEmergencyReset}
+        userId="default"
+        userName="Default"
       />
     </div>
   );

@@ -8,10 +8,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
 import { GatewayUser, getConnectionState, SessionStatus, UserConnectionState } from '@/types/gateway';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Copy, Loader2, QrCode, RefreshCw, CheckCircle, AlertCircle, Eye, EyeOff, Send, Phone, Key } from 'lucide-react';
+import { ArrowLeft, Copy, Loader2, QrCode, RefreshCw, CheckCircle, AlertCircle, Eye, EyeOff, Send, Phone, Key, Unplug, RotateCcw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import EmergencyResetDialog from '@/components/gateway/EmergencyResetDialog';
 
 const POLL_INTERVAL = 2000; // 2 seconds
 const MAX_POLL_TIME = 90000; // 90 seconds
@@ -67,6 +68,12 @@ export default function UserDetails() {
   const [revealedToken, setRevealedToken] = useState<string | null>(null);
   const [showToken, setShowToken] = useState(false);
   const [isRevealingToken, setIsRevealingToken] = useState(false);
+
+  // Disconnect state
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+
+  // Reset dialog state
+  const [showResetDialog, setShowResetDialog] = useState(false);
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -354,6 +361,28 @@ export default function UserDetails() {
       });
     } finally {
       setIsRefreshingStatus(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!id) return;
+    setIsDisconnecting(true);
+    try {
+      await gatewayService.disconnectUser(id);
+      await fetchStatus(id);
+      toast({
+        title: 'Disconnected',
+        description: 'WhatsApp session disconnected.',
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to disconnect';
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDisconnecting(false);
     }
   };
 
@@ -697,12 +726,45 @@ export default function UserDetails() {
               </Button>
             )}
 
-            {/* Connected Info */}
+            {/* Connected Info + Disconnect/Reset */}
             {showConnectedInfo && (
-              <div className="flex items-center gap-2 text-success">
-                <CheckCircle className="h-5 w-5" />
-                <span className="font-medium">WhatsApp Connected</span>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-success">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="font-medium">WhatsApp Connected</span>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={handleDisconnect}
+                    disabled={isDisconnecting}
+                    className="h-11 min-h-[44px] text-warning hover:text-warning border-warning/30"
+                  >
+                    {isDisconnecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Unplug className="mr-2 h-4 w-4" />}
+                    Disconnect
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowResetDialog(true)}
+                    className="h-11 min-h-[44px] text-destructive hover:text-destructive border-destructive/30"
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Reset + Reconnect
+                  </Button>
+                </div>
               </div>
+            )}
+
+            {/* Reset button for non-connected states */}
+            {!showConnectedInfo && !isProvisioning && connectionState !== 'provisioning' && (
+              <Button 
+                variant="outline" 
+                onClick={() => setShowResetDialog(true)}
+                className="h-11 min-h-[44px] text-destructive hover:text-destructive border-destructive/30 w-full sm:w-auto"
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Reset + Reconnect
+              </Button>
             )}
 
             {/* QR Modal */}
@@ -793,6 +855,17 @@ export default function UserDetails() {
           </Card>
         )}
       </div>
+
+      {/* Reset + Reconnect Dialog */}
+      {id && (
+        <EmergencyResetDialog
+          open={showResetDialog}
+          onOpenChange={setShowResetDialog}
+          userId={id}
+          userName={user.name}
+          onSuccess={() => { if (id) fetchStatus(id); }}
+        />
+      )}
     </div>
   );
 }

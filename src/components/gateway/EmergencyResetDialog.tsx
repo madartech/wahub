@@ -24,16 +24,18 @@ import { AlertTriangle, Loader2, RefreshCw, CheckCircle, XCircle } from 'lucide-
 
 const POLL_INTERVAL = 2000; // 2 seconds
 const MAX_POLL_TIME = 120000; // 120 seconds
-const DEFAULT_USER_ID = 'default'; // The default user ID
 
 interface EmergencyResetDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  userId: string;
+  userName?: string;
+  onSuccess?: () => void;
 }
 
-type ResetPhase = 'confirm' | 'provisioning' | 'polling' | 'scan_qr' | 'connected' | 'failed';
+type ResetPhase = 'confirm' | 'resetting' | 'polling' | 'scan_qr' | 'connected' | 'failed';
 
-export default function EmergencyResetDialog({ open, onOpenChange }: EmergencyResetDialogProps) {
+export default function EmergencyResetDialog({ open, onOpenChange, userId, userName, onSuccess }: EmergencyResetDialogProps) {
   const [phase, setPhase] = useState<ResetPhase>('confirm');
   const [statusLogs, setStatusLogs] = useState<string[]>([]);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -42,6 +44,8 @@ export default function EmergencyResetDialog({ open, onOpenChange }: EmergencyRe
   
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const pollStartTimeRef = useRef<number>(0);
+
+  const displayName = userName || userId;
 
   const addLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -83,7 +87,7 @@ export default function EmergencyResetDialog({ open, onOpenChange }: EmergencyRe
     }
 
     try {
-      const result = await gatewayService.getUserStatus(DEFAULT_USER_ID);
+      const result = await gatewayService.getUserStatus(userId);
       const status = result.session?.status || 'UNKNOWN';
       addLog(`Status: ${status}`);
 
@@ -92,12 +96,10 @@ export default function EmergencyResetDialog({ open, onOpenChange }: EmergencyRe
         setPhase('scan_qr');
         addLog('📱 Ready for QR scan - fetching QR code...');
         
-        // Fetch QR code
-        const qrResult = await gatewayService.getQRCode(DEFAULT_USER_ID);
+        const qrResult = await gatewayService.getQRCode(userId);
         if (qrResult.ok && qrResult.dataUrl) {
           setQrDataUrl(qrResult.dataUrl);
           addLog('✅ QR code displayed');
-          // Start polling for connection
           pollStartTimeRef.current = Date.now();
           pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
         } else {
@@ -113,6 +115,7 @@ export default function EmergencyResetDialog({ open, onOpenChange }: EmergencyRe
         setPhase('connected');
         setQrDataUrl(null);
         addLog('✅ WhatsApp connected!');
+        onSuccess?.();
         return;
       }
 
@@ -124,38 +127,36 @@ export default function EmergencyResetDialog({ open, onOpenChange }: EmergencyRe
         return;
       }
 
-      // Continue polling
       pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       addLog(`⚠️ Poll error: ${msg}`);
-      // Continue polling despite errors
       pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
     }
-  }, [cleanup]);
+  }, [cleanup, userId, onSuccess]);
 
   const handleConfirmReset = async () => {
     cleanup();
-    setPhase('provisioning');
+    setPhase('resetting');
     setStatusLogs([]);
     setQrDataUrl(null);
     setErrorMessage(null);
     setProgress(0);
-    addLog('🔄 Starting emergency reset...');
+    addLog('🔄 Starting reset...');
 
     try {
-      addLog('📡 Calling provision endpoint...');
-      await gatewayService.provisionUser(DEFAULT_USER_ID);
-      addLog('✅ Provision call successful');
+      addLog('📡 Calling reset endpoint...');
+      await gatewayService.resetUser(userId);
+      addLog('✅ Reset call successful');
       
       setPhase('polling');
       pollStartTimeRef.current = Date.now();
       pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Provision failed';
+      const msg = err instanceof Error ? err.message : 'Reset failed';
       setPhase('failed');
       setErrorMessage(msg);
-      addLog(`❌ Provision error: ${msg}`);
+      addLog(`❌ Reset error: ${msg}`);
     }
   };
 
@@ -163,9 +164,8 @@ export default function EmergencyResetDialog({ open, onOpenChange }: EmergencyRe
     handleConfirmReset();
   };
 
-  const isRunning = phase === 'provisioning' || phase === 'polling' || phase === 'scan_qr';
+  const isRunning = phase === 'resetting' || phase === 'polling' || phase === 'scan_qr';
 
-  // Show confirmation dialog first
   if (phase === 'confirm') {
     return (
       <AlertDialog open={open} onOpenChange={(o) => !o && handleClose()}>
@@ -173,11 +173,11 @@ export default function EmergencyResetDialog({ open, onOpenChange }: EmergencyRe
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />
-              Emergency Reset Confirmation
+              Reset Confirmation
             </AlertDialogTitle>
             <AlertDialogDescription className="text-left space-y-2">
               <p className="font-semibold text-destructive">
-                ⚠️ This will log out the current linked device and require scanning a new QR.
+                ⚠️ This will log out the current linked device for <strong>{displayName}</strong> and require scanning a new QR.
               </p>
               <p>
                 Sending will stop until a new QR code is scanned and the session is re-established.
@@ -201,17 +201,16 @@ export default function EmergencyResetDialog({ open, onOpenChange }: EmergencyRe
     );
   }
 
-  // Show progress dialog for all other phases
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-destructive" />
-            Emergency Reset
+            Reset + Reconnect
           </DialogTitle>
           <DialogDescription>
-            Resetting Default WhatsApp session
+            Resetting WhatsApp session for <strong>{displayName}</strong>
           </DialogDescription>
         </DialogHeader>
 
@@ -221,7 +220,7 @@ export default function EmergencyResetDialog({ open, onOpenChange }: EmergencyRe
               <div className="flex items-center gap-2">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 <span className="font-medium">
-                  {phase === 'provisioning' && 'Provisioning...'}
+                  {phase === 'resetting' && 'Resetting...'}
                   {phase === 'polling' && 'Waiting for QR ready...'}
                   {phase === 'scan_qr' && 'Scan QR Code Now'}
                 </span>
@@ -291,7 +290,6 @@ export default function EmergencyResetDialog({ open, onOpenChange }: EmergencyRe
             </>
           )}
 
-          {/* Status Logs */}
           {statusLogs.length > 0 && (
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground">Status Log:</p>
