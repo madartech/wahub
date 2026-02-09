@@ -34,6 +34,7 @@ import EmergencyResetDialog from '@/components/gateway/EmergencyResetDialog';
 
 interface UserItemProps {
   user: GatewayUser;
+  index: number;
   connectionState: UserConnectionState;
   navigate: (path: string) => void;
   onDelete: (userId: string, userName: string) => void;
@@ -148,7 +149,7 @@ function EditableName({
       <Button 
         variant="ghost" 
         size="icon" 
-        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" 
+        className="h-6 w-6 md:opacity-0 md:group-hover:opacity-100 transition-opacity" 
         onClick={() => setIsEditing(true)}
       >
         <Pencil className="h-3 w-3" />
@@ -157,14 +158,17 @@ function EditableName({
   );
 }
 
-function UserCard({ user, connectionState, navigate, onDelete, onDisconnect, onReset, onUpdateName, isDeleting, isDisconnecting }: UserItemProps) {
+function UserCard({ user, index, connectionState, navigate, onDelete, onDisconnect, onReset, onUpdateName, isDeleting, isDisconnecting }: UserItemProps) {
   const isConnected = connectionState === 'connected';
   
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between mb-3">
         <div>
-          <EditableName name={user.name} userId={user.id} onUpdateName={onUpdateName} />
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground font-mono">#{index}</span>
+            <EditableName name={user.name} userId={user.id} onUpdateName={onUpdateName} />
+          </div>
           {user.phoneNumber && (
             <p className="font-mono text-sm text-muted-foreground">{user.phoneNumber}</p>
           )}
@@ -241,11 +245,12 @@ function UserCard({ user, connectionState, navigate, onDelete, onDisconnect, onR
   );
 }
 
-function UserRow({ user, connectionState, navigate, onDelete, onDisconnect, onReset, onUpdateName, isDeleting, isDisconnecting }: UserItemProps) {
+function UserRow({ user, index, connectionState, navigate, onDelete, onDisconnect, onReset, onUpdateName, isDeleting, isDisconnecting }: UserItemProps) {
   const isConnected = connectionState === 'connected';
   
   return (
     <TableRow>
+      <TableCell className="text-muted-foreground font-mono text-sm w-12">{index}</TableCell>
       <TableCell>
         <EditableName name={user.name} userId={user.id} onUpdateName={onUpdateName} />
       </TableCell>
@@ -586,10 +591,11 @@ export default function Users() {
               <>
                 {/* Mobile Card View */}
                 <div className="md:hidden space-y-3">
-                  {users.map((user) => (
+                  {users.map((user, idx) => (
                     <UserCard
                       key={user.id}
                       user={user}
+                      index={idx + 1}
                       connectionState={getConnectionState(user.sessionStatus)}
                       navigate={navigate}
                       onDelete={handleDelete}
@@ -607,6 +613,7 @@ export default function Users() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-12">#</TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Phone</TableHead>
                         <TableHead>Status</TableHead>
@@ -615,10 +622,11 @@ export default function Users() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {users.map((user) => (
+                      {users.map((user, idx) => (
                         <UserRow
                           key={user.id}
                           user={user}
+                          index={idx + 1}
                           connectionState={getConnectionState(user.sessionStatus)}
                           navigate={navigate}
                           onDelete={handleDelete}
