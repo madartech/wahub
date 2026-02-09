@@ -71,6 +71,13 @@ function EditableName({
   const [editValue, setEditValue] = useState(name);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Sync editValue when name prop changes (e.g., after refresh applies localStorage)
+  useEffect(() => {
+    if (!isEditing) {
+      setEditValue(name);
+    }
+  }, [name, isEditing]);
+
   const handleSave = async () => {
     if (!editValue.trim() || editValue.trim() === name) {
       setIsEditing(false);
