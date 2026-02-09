@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Search } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -249,29 +250,29 @@ function UserRow({ user, index, connectionState, navigate, onDelete, onDisconnec
   const isConnected = connectionState === 'connected';
   
   return (
-    <TableRow>
-      <TableCell className="text-muted-foreground font-mono text-sm w-12">{index}</TableCell>
-      <TableCell>
+    <TableRow className="h-10">
+      <TableCell className="text-muted-foreground font-mono text-xs w-10 py-1.5">{index}</TableCell>
+      <TableCell className="py-1.5">
         <EditableName name={user.name} userId={user.id} onUpdateName={onUpdateName} />
       </TableCell>
-      <TableCell>
+      <TableCell className="py-1.5">
         {user.phoneNumber ? (
-          <span className="font-mono text-sm">{user.phoneNumber}</span>
+          <span className="font-mono text-xs">{user.phoneNumber}</span>
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell className="py-1.5">
         {getStatusBadge(connectionState)}
       </TableCell>
-      <TableCell>
+      <TableCell className="py-1.5">
         {user.instanceId ? (
-          <code className="rounded bg-muted px-2 py-1 text-sm">{user.instanceId}</code>
+          <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{user.instanceId}</code>
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
       </TableCell>
-      <TableCell className="text-right">
+      <TableCell className="text-right py-1.5">
         <div className="flex items-center justify-end gap-1">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/users/${user.id}`)}>
             <Eye className="h-4 w-4" />
@@ -353,6 +354,7 @@ export default function Users() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
   
   // Reset dialog state
@@ -492,6 +494,15 @@ export default function Users() {
     toast.success('Refreshed');
   }, [fetchUsersWithStatus]);
 
+  const filteredUsers = users.filter((user) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      user.name.toLowerCase().includes(q) ||
+      (user.phoneNumber && user.phoneNumber.toLowerCase().includes(q))
+    );
+  });
+
   return (
     <>
     <PullToRefresh onRefresh={handlePullRefresh}>
@@ -521,13 +532,26 @@ export default function Users() {
         )}
 
         <Card>
-          <CardHeader>
-            <CardTitle>All Users</CardTitle>
-            <CardDescription>
-              {users.length} user{users.length !== 1 ? 's' : ''} registered
-            </CardDescription>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg">All Users</CardTitle>
+                <CardDescription>
+                  {filteredUsers.length}{searchQuery ? ` of ${users.length}` : ''} user{filteredUsers.length !== 1 ? 's' : ''}
+                </CardDescription>
+              </div>
+            </div>
+            <div className="relative mt-2">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name or phone…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             {isLoading ? (
               <>
                 {/* Mobile Card Skeleton */}
@@ -583,15 +607,15 @@ export default function Users() {
                   </Table>
                 </div>
               </>
-            ) : users.length === 0 && !error ? (
+            ) : filteredUsers.length === 0 && !error ? (
               <div className="text-center text-muted-foreground py-8">
-                No users found. Add your first WhatsApp user.
+                {users.length === 0 ? 'No users found. Add your first WhatsApp user.' : 'No users match your search.'}
               </div>
             ) : (
               <>
                 {/* Mobile Card View */}
                 <div className="md:hidden space-y-3">
-                  {users.map((user, idx) => (
+                  {filteredUsers.map((user, idx) => (
                     <UserCard
                       key={user.id}
                       user={user}
@@ -612,8 +636,8 @@ export default function Users() {
                 <div className="hidden md:block">
                   <Table>
                     <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">#</TableHead>
+                      <TableRow className="h-9">
+                        <TableHead className="w-10 py-1.5">#</TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Phone</TableHead>
                         <TableHead>Status</TableHead>
@@ -622,7 +646,7 @@ export default function Users() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {users.map((user, idx) => (
+                      {filteredUsers.map((user, idx) => (
                         <UserRow
                           key={user.id}
                           user={user}
