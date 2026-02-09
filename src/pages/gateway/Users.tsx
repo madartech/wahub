@@ -461,9 +461,21 @@ export default function Users() {
   };
 
   const handleUpdateName = async (userId: string, newName: string) => {
+    // Optimistic UI update
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, name: newName } : u));
-    saveDisplayName(userId, newName);
-    toast.success('Display name updated');
+    
+    try {
+      await gatewayService.updateUser(userId, newName);
+      // Remove localStorage override since backend now has the correct name
+      const stored = getStoredDisplayNames();
+      delete stored[userId];
+      localStorage.setItem(DISPLAY_NAMES_KEY, JSON.stringify(stored));
+      toast.success('Display name updated');
+    } catch {
+      // Fallback to localStorage if backend doesn't support it
+      saveDisplayName(userId, newName);
+      toast.success('Display name updated locally');
+    }
   };
 
   useEffect(() => {
