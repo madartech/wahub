@@ -121,21 +121,21 @@ export default function GatewayLayout({ children }: GatewayLayoutProps) {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-sidebar border-t border-border flex justify-around items-center h-16 z-50 safe-bottom">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-sidebar border-t border-border flex items-stretch h-16 z-50 safe-bottom">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             className={({ isActive }) =>
               cn(
-                'flex flex-col items-center justify-center gap-1 flex-1 h-full min-h-[44px] text-xs font-medium transition-colors active:bg-sidebar-accent/50',
+                'flex flex-col items-center justify-center gap-1 flex-1 min-w-[80px] min-h-[48px] text-xs font-medium transition-colors active:bg-sidebar-accent/50',
                 isActive
                   ? 'text-primary'
                   : 'text-muted-foreground'
               )
             }
           >
-            <item.icon className="h-5 w-5" />
+            <item.icon className="h-6 w-6" />
             <span>{item.label}</span>
           </NavLink>
         ))}
