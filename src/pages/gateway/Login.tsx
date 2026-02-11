@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGatewayAuth } from '@/contexts/GatewayAuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MessageSquare, Loader2, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react';
+import { MessageSquare, Loader2, Eye, EyeOff, AlertCircle, ArrowRight, Sun, Moon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function GatewayLogin() {
@@ -13,9 +13,25 @@ export default function GatewayLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
   const { login } = useGatewayAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const toggleDarkMode = () => {
+    const next = !isDark;
+    setIsDark(next);
+    document.documentElement.classList.toggle('dark', next);
+    localStorage.setItem('theme', next ? 'dark' : 'light');
+  };
+
+  useEffect(() => {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+      setIsDark(true);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +58,15 @@ export default function GatewayLogin() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-background p-4 pt-safe pb-safe relative overflow-hidden">
+      {/* Dark mode toggle */}
+      <button
+        onClick={toggleDarkMode}
+        className="absolute top-4 right-4 z-20 p-2.5 rounded-xl bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
+        aria-label="Toggle dark mode"
+      >
+        {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      </button>
+
       {/* Subtle background decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-[40%] -right-[20%] w-[60%] h-[60%] rounded-full bg-primary/5 blur-3xl" />
