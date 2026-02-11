@@ -4,8 +4,7 @@ import { useGatewayAuth } from '@/contexts/GatewayAuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageSquare, Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { MessageSquare, Loader2, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function GatewayLogin() {
@@ -42,100 +41,110 @@ export default function GatewayLogin() {
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-gradient-to-b from-background to-muted/30 p-4 pt-safe pb-safe">
-      <Card className="w-full max-w-sm shadow-lg border-0 sm:border">
-        <CardHeader className="text-center space-y-4 pb-6">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
-            <MessageSquare className="h-8 w-8" />
-          </div>
-          <div className="space-y-1">
-            <CardTitle className="text-2xl font-bold tracking-tight">WA Hub</CardTitle>
-            <CardDescription className="text-base">
-              WhatsApp Gateway Admin
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Error Message */}
-            {error && (
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-                <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                <span>{error}</span>
-              </div>
-            )}
+    <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-background p-4 pt-safe pb-safe relative overflow-hidden">
+      {/* Subtle background decoration */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-[40%] -right-[20%] w-[60%] h-[60%] rounded-full bg-primary/5 blur-3xl" />
+        <div className="absolute -bottom-[30%] -left-[15%] w-[50%] h-[50%] rounded-full bg-primary/3 blur-3xl" />
+      </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium">
-                Email
-              </Label>
+      <div className="w-full max-w-sm relative z-10">
+        {/* Logo & Branding */}
+        <div className="text-center mb-8">
+          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground mb-5 shadow-lg shadow-primary/20">
+            <MessageSquare className="h-7 w-7" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Welcome back
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1.5">
+            Sign in to WA Hub Gateway
+          </p>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Error Message */}
+          {error && (
+            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-destructive/10 text-destructive text-sm animate-in fade-in slide-in-from-top-1 duration-200">
+              <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="email" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Email
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="admin@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={isLoading}
+              autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              className="h-12 text-base px-4 rounded-xl border-border/60 bg-muted/30 focus:bg-background transition-colors"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="password" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Password
+            </Label>
+            <div className="relative">
               <Input
-                id="email"
-                type="email"
-                placeholder="admin@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={isLoading}
-                autoComplete="email"
-                autoCapitalize="none"
-                autoCorrect="off"
-                className="h-12 text-base px-4"
+                autoComplete="current-password"
+                className="h-12 text-base px-4 pr-12 rounded-xl border-border/60 bg-muted/30 focus:bg-background transition-colors"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all"
+                tabIndex={-1}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium">
-                Password
-              </Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  disabled={isLoading}
-                  autoComplete="current-password"
-                  className="h-12 text-base px-4 pr-12"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
-                  tabIndex={-1}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
-                </button>
-              </div>
-            </div>
+          <Button 
+            type="submit" 
+            className="w-full h-12 text-base font-medium rounded-xl mt-2 shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all" 
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Signing in...
+              </>
+            ) : (
+              <>
+                Sign In
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </>
+            )}
+          </Button>
+        </form>
+      </div>
 
-            <Button 
-              type="submit" 
-              className="w-full h-12 text-base font-medium mt-2" 
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                'Sign In'
-              )}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Footer text */}
-      <p className="mt-8 text-sm text-muted-foreground text-center">
+      {/* Footer */}
+      <p className="mt-10 text-xs text-muted-foreground/60 text-center relative z-10">
         MadarTech WhatsApp Gateway
       </p>
     </div>
