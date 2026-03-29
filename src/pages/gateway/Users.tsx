@@ -555,7 +555,7 @@ export default function Users() {
               <Input
                 placeholder="Search by name or phone…"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                 className="pl-9 h-9"
               />
             </div>
