@@ -15,7 +15,8 @@ export function PullToRefresh({ onRefresh, children, threshold = 80 }: PullToRef
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     // Only enable pull-to-refresh when scrolled to top
-    if (containerRef.current && containerRef.current.scrollTop === 0) {
+    const scrollParent = containerRef.current?.closest('main') || containerRef.current;
+    if (scrollParent && scrollParent.scrollTop === 0) {
       startYRef.current = e.touches[0].clientY;
     }
   }, []);
