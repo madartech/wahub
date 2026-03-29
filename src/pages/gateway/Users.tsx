@@ -542,14 +542,7 @@ export default function Users() {
 
         <Card>
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg">All Users</CardTitle>
-                <CardDescription>
-                  {filteredUsers.length}{searchQuery ? ` of ${users.length}` : ''} user{filteredUsers.length !== 1 ? 's' : ''}
-                </CardDescription>
-              </div>
-            </div>
+            <div className="flex items-center justify-between" />
             <div className="relative mt-2">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
