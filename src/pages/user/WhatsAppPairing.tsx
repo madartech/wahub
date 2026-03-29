@@ -25,7 +25,7 @@ export default function WhatsAppPairing() {
   const [error, setError] = useState('');
   const [isPolling, setIsPolling] = useState(false);
 
-  const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const apiKey = user?.apiKey || '';
 

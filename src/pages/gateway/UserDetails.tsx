@@ -49,7 +49,7 @@ export default function UserDetails() {
 
   // Provisioning state
   const [isProvisioning, setIsProvisioning] = useState(false);
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollStartTimeRef = useRef<number>(0);
 
   // QR state
@@ -57,7 +57,7 @@ export default function UserDetails() {
   const [isLoadingQR, setIsLoadingQR] = useState(false);
   const [qrError, setQrError] = useState<string | null>(null);
   const [showQrModal, setShowQrModal] = useState(false);
-  const qrPollingRef = useRef<NodeJS.Timeout | null>(null);
+  const qrPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Send test message state
   const [testPhone, setTestPhone] = useState('');
