@@ -42,7 +42,7 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollStartTimeRef = useRef<number>(0);
 
   const displayName = userName || userId;

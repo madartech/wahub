@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -355,6 +355,8 @@ export default function Users() {
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
   const navigate = useNavigate();
   
   // Reset dialog state
@@ -503,6 +505,13 @@ export default function Users() {
     );
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedUsers = filteredUsers.slice(
+    (safeCurrentPage - 1) * PAGE_SIZE,
+    safeCurrentPage * PAGE_SIZE
+  );
+
   return (
     <>
     <PullToRefresh onRefresh={handlePullRefresh}>
@@ -546,7 +555,7 @@ export default function Users() {
               <Input
                 placeholder="Search by name or phone…"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                 className="pl-9 h-9"
               />
             </div>
@@ -615,11 +624,11 @@ export default function Users() {
               <>
                 {/* Mobile Card View */}
                 <div className="md:hidden space-y-3">
-                  {filteredUsers.map((user, idx) => (
+                  {paginatedUsers.map((user, idx) => (
                     <UserCard
                       key={user.id}
                       user={user}
-                      index={idx + 1}
+                      index={(safeCurrentPage - 1) * PAGE_SIZE + idx + 1}
                       connectionState={getConnectionState(user.sessionStatus)}
                       navigate={navigate}
                       onDelete={handleDelete}
@@ -646,11 +655,11 @@ export default function Users() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredUsers.map((user, idx) => (
+                      {paginatedUsers.map((user, idx) => (
                         <UserRow
                           key={user.id}
                           user={user}
-                          index={idx + 1}
+                          index={(safeCurrentPage - 1) * PAGE_SIZE + idx + 1}
                           connectionState={getConnectionState(user.sessionStatus)}
                           navigate={navigate}
                           onDelete={handleDelete}
@@ -664,6 +673,46 @@ export default function Users() {
                     </TableBody>
                   </Table>
                 </div>
+
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4 border-t mt-4">
+                    <p className="text-sm text-muted-foreground">
+                      {(safeCurrentPage - 1) * PAGE_SIZE + 1}–{Math.min(safeCurrentPage * PAGE_SIZE, filteredUsers.length)} of {filteredUsers.length}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={safeCurrentPage <= 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                        <Button
+                          key={page}
+                          variant={page === safeCurrentPage ? "default" : "outline"}
+                          size="icon"
+                          className="h-8 w-8 text-xs"
+                          onClick={() => setCurrentPage(page)}
+                        >
+                          {page}
+                        </Button>
+                      ))}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={safeCurrentPage >= totalPages}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </CardContent>
