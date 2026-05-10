@@ -113,7 +113,7 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
           <DropdownMenuSeparator />
           <DropdownMenuLabel>Container</DropdownMenuLabel>
           <DropdownMenuItem onClick={handleProvision}><Power className="mr-2 h-4 w-4" /> Provision / Create</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => run('Restart', () => gatewayService.restartInstance(user.id))}>
+          <DropdownMenuItem onClick={() => run('Restart', () => gatewayService.restartInstance(user.id), { delayedRefresh: true })}>
             <RotateCw className="mr-2 h-4 w-4" /> Restart
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => run('Stop', () => gatewayService.stopInstance(user.id))}>
