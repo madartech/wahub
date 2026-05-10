@@ -1,14 +1,27 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { GatewayUser, WatchdogUserConfig } from '@/types/gateway';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import HealthBadge, { StatusBadge } from './HealthBadge';
+import HealthBadge, { StatusBadge, deriveHealth } from './HealthBadge';
 import RowActions from './RowActions';
 import WatchdogControls from './WatchdogControls';
 import WatchdogBadges from './WatchdogBadges';
+
+type SortKey = 'none' | 'health' | 'instance';
+type SortDir = 'asc' | 'desc';
+const HEALTH_ORDER: Record<string, number> = {
+  stuck: 0, starting: 1, needs_qr: 2, offline: 3, paused: 4, healthy: 5,
+};
+function instanceRank(id?: string | null) {
+  if (!id) return Number.MAX_SAFE_INTEGER;
+  const m = /^u(\d+)$/i.exec(id);
+  if (m) return parseInt(m[1], 10);
+  if (id === 'default') return -1;
+  return 1e6;
+}
 
 interface Props {
   users: GatewayUser[];
