@@ -133,13 +133,6 @@ export default function GatewayLayout({ children }: GatewayLayoutProps) {
         ))}
       </nav>
 
-      {/* Emergency Reset Dialog */}
-      <EmergencyResetDialog 
-        open={showEmergencyReset} 
-        onOpenChange={setShowEmergencyReset}
-        userId="default"
-        userName="Default"
-      />
     </div>
   );
 }
