@@ -67,11 +67,9 @@ export default function WatchdogControls({ user, cfg, onChanged, compact }: Prop
         open={confirmReset}
         onOpenChange={setConfirmReset}
         title="Enable auto-reset"
-        description="Auto-reset will remove the container and delete this instance's session folder when repeated failures occur. WhatsApp will need a fresh QR scan."
-        confirmText="ENABLE"
-        confirmLabel="Enable auto-reset"
-        destructive
-        onConfirm={async () => { await apply({ autoReset: true }); }}
+        description="Auto-reset removes the container and deletes this instance's session folder when repeated failures occur. WhatsApp will need a fresh QR scan."
+        confirmWord="ENABLE"
+        onConfirm={async () => { await apply({ autoReset: true }); setConfirmReset(false); }}
       />
     </div>
   );
