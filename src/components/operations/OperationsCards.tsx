@@ -1,15 +1,17 @@
-import { GatewayUser } from '@/types/gateway';
+import { GatewayUser, WatchdogUserConfig } from '@/types/gateway';
 import { Card } from '@/components/ui/card';
 import HealthBadge, { StatusBadge } from './HealthBadge';
 import RowActions from './RowActions';
+import WatchdogControls from './WatchdogControls';
 
 interface Props {
   users: GatewayUser[];
+  watchdogUsers?: Record<string, WatchdogUserConfig>;
   onChanged: () => void;
   onModalChange: (open: boolean) => void;
 }
 
-export default function OperationsCards({ users, onChanged, onModalChange }: Props) {
+export default function OperationsCards({ users, watchdogUsers, onChanged, onModalChange }: Props) {
   if (users.length === 0) {
     return <p className="py-8 text-center text-sm text-muted-foreground">No instances match.</p>;
   }
