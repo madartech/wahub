@@ -148,3 +148,48 @@ export interface LogsResponse extends OperationResponse {
   lines?: string[];
   raw?: string;
 }
+
+// ===== Watchdog =====
+export interface WatchdogConfig {
+  enabled: boolean;
+  autoRestart: boolean;
+  autoReset: boolean;
+  stuckStartingMinutes: number;
+  repeatedFailureWindowMinutes: number;
+  intervalMinutes: number;
+  adminAlertUserId?: string | null;
+}
+
+export interface WatchdogUserConfig {
+  autoHeal: boolean;
+  autoReset: boolean;
+  failures?: { at: string; reason: string }[];
+  lastAction?: { action: string; at: string } | null;
+}
+
+export type WatchdogAction =
+  | 'auto_restart_stuck_starting'
+  | 'auto_reset_repeated_failure'
+  | 'repeated_failure_no_action'
+  | 'skipped_working'
+  | 'check_error'
+  | 'manual_run';
+
+export interface WatchdogLogEntry {
+  id: string;
+  instanceId?: string;
+  userId?: string;
+  action: WatchdogAction | string;
+  reason?: string;
+  oldStatus?: string;
+  newStatus?: string;
+  result?: string;
+  details?: unknown;
+  createdAt: string;
+}
+
+export interface WatchdogStatusResponse extends OperationResponse {
+  config?: WatchdogConfig;
+  lastRunAt?: string | null;
+  users?: Record<string, WatchdogUserConfig>;
+}
