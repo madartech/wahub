@@ -10,6 +10,7 @@ import Dashboard from "@/pages/gateway/Dashboard";
 import Users from "@/pages/gateway/Users";
 import AddUser from "@/pages/gateway/AddUser";
 import UserDetails from "@/pages/gateway/UserDetails";
+import Operations from "@/pages/gateway/Operations";
 import GatewayLayout from "@/components/layout/GatewayLayout";
 import NotFound from "@/pages/NotFound";
 
@@ -78,6 +79,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <UserDetails />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/operations"
+        element={
+          <ProtectedRoute>
+            <Operations />
           </ProtectedRoute>
         }
       />

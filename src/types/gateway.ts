@@ -10,10 +10,16 @@ export type SessionStatus =
 
 // Derived UI state from session status
 export type UserConnectionState = 
-  | 'not_provisioned'   // STOPPED or no status
-  | 'provisioning'      // STARTING
-  | 'scan_qr'           // SCAN_QR_CODE
-  | 'connected';        // WORKING or READY
+  | 'not_provisioned'
+  | 'provisioning'
+  | 'scan_qr'
+  | 'connected';
+
+export interface SendStats {
+  minute?: number;
+  hour?: number;
+  day?: number;
+}
 
 export interface GatewayUser {
   id: string;
@@ -23,18 +29,22 @@ export interface GatewayUser {
   gatewayUrl?: string;
   token?: string;
   tokenMasked?: string;
-  // These are derived from status, not stored
   phoneNumber?: string | null;
-  // Session status from backend
   sessionStatus?: SessionStatus;
-  // User me info from backend
   me?: {
     id?: string;
     pushName?: string;
   } | null;
+  // Operations fields (may be returned by extended /admin/users)
+  containerName?: string;
+  pushName?: string | null;
+  lastActivityAt?: string | null;
+  pausedUntil?: string | null;
+  sendStats?: SendStats;
+  containerStatus?: string;
+  statusChangedAt?: string | null;
 }
 
-// Helper to derive connection state from session status
 export function getConnectionState(status?: SessionStatus): UserConnectionState {
   switch (status) {
     case 'WORKING':
@@ -51,6 +61,16 @@ export function getConnectionState(status?: SessionStatus): UserConnectionState 
   }
 }
 
+export type HealthLevel =
+  | 'healthy'
+  | 'needs_qr'
+  | 'stuck'
+  | 'starting'
+  | 'offline'
+  | 'paused'
+  | 'container_missing'
+  | 'failed';
+
 export interface UserStatusResponse {
   ok: boolean;
   session?: {
@@ -61,6 +81,7 @@ export interface UserStatusResponse {
     pushName?: string;
   } | null;
   phoneNumber?: string | null;
+  containerStatus?: string;
   error?: string;
 }
 
@@ -112,4 +133,18 @@ export interface SendMessageResponse {
   timestamp?: string;
   ack?: string;
   error?: string;
+}
+
+export interface OperationResponse {
+  ok: boolean;
+  status?: number;
+  error?: string;
+  detail?: unknown;
+  notDeployed?: boolean;
+  data?: unknown;
+}
+
+export interface LogsResponse extends OperationResponse {
+  lines?: string[];
+  raw?: string;
 }

@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useGatewayAuth } from '@/contexts/GatewayAuthContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, LogOut, MessageSquare, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, MessageSquare, AlertTriangle, Activity } from 'lucide-react';
 import { InstallButton } from '@/components/InstallButton';
 import EmergencyResetDialog from '@/components/gateway/EmergencyResetDialog';
 
@@ -14,6 +14,7 @@ interface GatewayLayoutProps {
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/users', label: 'Users', icon: Users },
+  { to: '/admin/operations', label: 'Operations', icon: Activity },
 ];
 
 export default function GatewayLayout({ children }: GatewayLayoutProps) {

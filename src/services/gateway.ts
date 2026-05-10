@@ -7,7 +7,9 @@ import {
   ProvisionResponse,
   QRResponse,
   UserStatusResponse,
-  SessionStatus
+  SessionStatus,
+  OperationResponse,
+  LogsResponse,
 } from '@/types/gateway';
 import { GATEWAY_BASE_URL, ADMIN_TOKEN } from '@/config/gateway';
 
@@ -335,5 +337,55 @@ export const gatewayService = {
     }
     
     return { ok: true };
+  },
+
+  // ===== Operations admin endpoints (graceful 404 if not deployed) =====
+  async _adminOp(
+    method: 'POST' | 'GET',
+    path: string,
+    body?: unknown,
+  ): Promise<OperationResponse> {
+    try {
+      const res = await fetch(`${GATEWAY_BASE_URL}${path}`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': ADMIN_TOKEN,
+        },
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+      let data: any = null;
+      const text = await res.text();
+      try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
+      if (!res.ok) {
+        return {
+          ok: false,
+          status: res.status,
+          error: data?.error || data?.message || `HTTP ${res.status}`,
+          detail: data,
+          notDeployed: res.status === 404,
+        };
+      }
+      return { ok: true, status: res.status, data };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : 'network_error', detail: String(e) };
+    }
+  },
+
+  restartInstance(userId: string)        { return this._adminOp('POST', `/admin/users/${userId}/restart`); },
+  stopInstance(userId: string)           { return this._adminOp('POST', `/admin/users/${userId}/stop`); },
+  startInstance(userId: string)          { return this._adminOp('POST', `/admin/users/${userId}/start`); },
+  removeContainer(userId: string)        { return this._adminOp('POST', `/admin/users/${userId}/remove-container`); },
+  resetSession(userId: string)           { return this._adminOp('POST', `/admin/users/${userId}/reset-session`); },
+  pauseSending(userId: string, minutes: number) { return this._adminOp('POST', `/admin/users/${userId}/pause`, { minutes }); },
+  resumeSending(userId: string)          { return this._adminOp('POST', `/admin/users/${userId}/resume`); },
+  adminTestSend(userId: string, payload: SendMessagePayload) {
+    return this._adminOp('POST', `/admin/users/${userId}/test-send`, payload);
+  },
+  async getInstanceLogs(userId: string, lines = 100): Promise<LogsResponse> {
+    const op = await this._adminOp('GET', `/admin/users/${userId}/logs?lines=${Math.min(300, Math.max(1, lines))}`);
+    if (!op.ok) return op as LogsResponse;
+    const d = op.data as any;
+    return { ...op, lines: d?.lines || (d?.raw ? String(d.raw).split('\n') : []), raw: d?.raw || '' };
   },
 };
