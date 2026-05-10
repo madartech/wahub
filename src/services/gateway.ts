@@ -353,4 +353,27 @@ export const gatewayService = {
     const d = op.data as any;
     return { ...op, lines: d?.lines || (d?.raw ? String(d.raw).split('\n') : []), raw: d?.raw || '' };
   },
+
+  // ===== Watchdog =====
+  async getWatchdogStatus(): Promise<WatchdogStatusResponse> {
+    const op = await this._adminOp('GET', '/admin/watchdog/status');
+    if (!op.ok) return op as WatchdogStatusResponse;
+    const d = op.data as any;
+    return { ...op, config: d?.config, lastRunAt: d?.lastRunAt ?? null, users: d?.users || {} };
+  },
+  updateWatchdogConfig(partial: Partial<WatchdogConfig>) {
+    return this._adminOp('POST', '/admin/watchdog/config', partial);
+  },
+  setUserWatchdogConfig(userId: string, partial: { autoHeal?: boolean; autoReset?: boolean }) {
+    return this._adminOp('POST', `/admin/users/${userId}/watchdog-config`, partial);
+  },
+  runWatchdogOnce() {
+    return this._adminOp('POST', '/admin/watchdog/run-once');
+  },
+  async getWatchdogLogs(limit = 100): Promise<OperationResponse & { logs?: WatchdogLogEntry[] }> {
+    const op = await this._adminOp('GET', `/admin/watchdog/logs?limit=${Math.min(500, Math.max(1, limit))}`);
+    if (!op.ok) return op;
+    const d = op.data as any;
+    return { ...op, logs: d?.logs || [] };
+  },
 };
