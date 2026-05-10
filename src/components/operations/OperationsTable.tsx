@@ -47,6 +47,8 @@ function fmtCountdown(s?: string | null) {
 
 export default function OperationsTable({ users, watchdogUsers, onChanged, onModalChange }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const toggle = (id: string) => {
     setExpanded((prev) => {
@@ -57,7 +59,13 @@ export default function OperationsTable({ users, watchdogUsers, onChanged, onMod
     });
   };
 
+  const totalPages = Math.max(1, Math.ceil(users.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const startIdx = (safePage - 1) * PAGE_SIZE;
+  const pageUsers = users.slice(startIdx, startIdx + PAGE_SIZE);
+
   return (
+    <div className="space-y-2">
     <div className="rounded-md border">
       <Table>
         <TableHeader>
@@ -65,6 +73,7 @@ export default function OperationsTable({ users, watchdogUsers, onChanged, onMod
             <TableHead className="w-8"></TableHead>
             <TableHead className="w-10">#</TableHead>
             <TableHead>Name</TableHead>
+            <TableHead className="w-20">Instance</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Health</TableHead>
             <TableHead>Phone</TableHead>
@@ -73,7 +82,7 @@ export default function OperationsTable({ users, watchdogUsers, onChanged, onMod
           </TableRow>
         </TableHeader>
         <TableBody>
-          {users.map((u, i) => {
+          {pageUsers.map((u, i) => {
             const isOpen = expanded.has(u.id);
             const cfg = watchdogUsers?.[u.id];
             return (
@@ -82,7 +91,7 @@ export default function OperationsTable({ users, watchdogUsers, onChanged, onMod
                   className="cursor-pointer hover:bg-muted/40"
                   onClick={() => toggle(u.id)}
                 >
-                  <TableCell className="py-2">
+                  <TableCell className="py-1.5">
                     <ChevronRight
                       className={cn(
                         'h-4 w-4 text-muted-foreground transition-transform',
@@ -90,13 +99,11 @@ export default function OperationsTable({ users, watchdogUsers, onChanged, onMod
                       )}
                     />
                   </TableCell>
-                  <TableCell className="py-2 text-xs text-muted-foreground">{i + 1}</TableCell>
-                  <TableCell className="py-2">
+                  <TableCell className="py-1.5 text-xs text-muted-foreground">{startIdx + i + 1}</TableCell>
+                  <TableCell className="py-1.5">
                     <div className="font-medium text-sm leading-tight">{u.name}</div>
-                    <div className="text-[10px] font-mono text-muted-foreground">
-                      {u.instanceId || '—'}
-                    </div>
                   </TableCell>
+                  <TableCell className="py-1.5 font-mono text-xs">{u.instanceId || '—'}</TableCell>
                   <TableCell className="py-2"><StatusBadge status={u.sessionStatus} /></TableCell>
                   <TableCell className="py-2"><HealthBadge user={u} /></TableCell>
                   <TableCell className="py-2 text-xs">
@@ -111,7 +118,7 @@ export default function OperationsTable({ users, watchdogUsers, onChanged, onMod
                 </TableRow>
                 {isOpen && (
                   <TableRow className="bg-muted/20 hover:bg-muted/20">
-                    <TableCell colSpan={8} className="py-3">
+                    <TableCell colSpan={9} className="py-3">
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 px-2">
                         <Detail label="User ID" value={<span className="font-mono text-[11px] break-all">{u.id}</span>} />
                         <Detail label="Container" value={<span className="font-mono text-xs">{u.containerName || (u.instanceId ? `waha_${u.instanceId}` : '—')}</span>} />
@@ -147,13 +154,38 @@ export default function OperationsTable({ users, watchdogUsers, onChanged, onMod
           })}
           {users.length === 0 && (
             <TableRow>
-              <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+              <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
                 No instances match the current filter.
               </TableCell>
             </TableRow>
           )}
         </TableBody>
       </Table>
+    </div>
+    {users.length > 0 && (
+      <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
+        <div>
+          Showing {startIdx + 1}–{Math.min(startIdx + PAGE_SIZE, users.length)} of {users.length}
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            className="rounded border px-2 py-1 disabled:opacity-40 hover:bg-muted"
+            disabled={safePage <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Prev
+          </button>
+          <span className="px-2">Page {safePage} / {totalPages}</span>
+          <button
+            className="rounded border px-2 py-1 disabled:opacity-40 hover:bg-muted"
+            disabled={safePage >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    )}
     </div>
   );
 }
