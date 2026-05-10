@@ -25,6 +25,7 @@ const FILTERS: { key: Filter; label: string }[] = [
 
 export default function Operations() {
   const [users, setUsers] = useState<GatewayUser[]>([]);
+  const [watchdogUsers, setWatchdogUsers] = useState<Record<string, WatchdogUserConfig>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
