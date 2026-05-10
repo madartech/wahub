@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -34,10 +34,7 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
   const failuresRef = useRef(0);
 
   const anyModal = confirmRemove || confirmReset || pauseOpen || testOpen || logsOpen || qrOpen;
-  // notify parent when modal state changes
-  if (typeof window !== 'undefined') {
-    queueMicrotask(() => onModalChange(anyModal));
-  }
+  useEffect(() => { onModalChange(anyModal); }, [anyModal, onModalChange]);
 
   const run = async (label: string, fn: () => Promise<OperationResponse>, opts?: { silentSuccess?: boolean }) => {
     setBusy(true);
