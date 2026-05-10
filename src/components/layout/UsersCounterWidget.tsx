@@ -63,11 +63,11 @@ export default function UsersCounterWidget({ className }: { className?: string }
       )}
       title={label}
     >
-      <Icon className="h-3.5 w-3.5 shrink-0" />
-      <div className="flex items-baseline gap-1 leading-none">
-        <span className="text-sm font-bold tabular-nums">{value}</span>
-        <span className="text-[10px] uppercase tracking-wide opacity-80">{label}</span>
+      <div className="flex items-center gap-1.5 min-w-0">
+        <Icon className="h-4 w-4 shrink-0" />
+        <span className="text-xs font-medium uppercase tracking-wide truncate">{label}</span>
       </div>
+      <span className="text-base font-bold tabular-nums leading-none">{value}</span>
     </div>
   );
 
