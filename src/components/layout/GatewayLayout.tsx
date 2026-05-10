@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { LayoutDashboard, Users, LogOut, MessageSquare, Activity } from 'lucide-react';
 import { InstallButton } from '@/components/InstallButton';
 import SidebarWatchdogWidget from '@/components/layout/SidebarWatchdogWidget';
+import UsersCounterWidget from '@/components/layout/UsersCounterWidget';
 
 interface GatewayLayoutProps {
   children: ReactNode;
@@ -39,14 +40,17 @@ export default function GatewayLayout({ children }: GatewayLayoutProps) {
             <p className="text-xs text-muted-foreground">Gateway Admin</p>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-11 w-11 text-muted-foreground hover:text-foreground"
-          onClick={handleLogout}
-        >
-          <LogOut className="h-5 w-5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <UsersCounterWidget />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11 text-muted-foreground hover:text-foreground"
+            onClick={handleLogout}
+          >
+            <LogOut className="h-5 w-5" />
+          </Button>
+        </div>
       </header>
 
       {/* Desktop Sidebar */}
@@ -63,8 +67,12 @@ export default function GatewayLayout({ children }: GatewayLayoutProps) {
               </div>
             </div>
           </div>
-          {/* Install Button */}
+          {/* Users counter */}
           <div className="mt-4">
+            <UsersCounterWidget />
+          </div>
+          {/* Install Button */}
+          <div className="mt-3">
             <InstallButton />
           </div>
         </div>
