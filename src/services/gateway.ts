@@ -10,6 +10,9 @@ import {
   SessionStatus,
   OperationResponse,
   LogsResponse,
+  WatchdogConfig,
+  WatchdogStatusResponse,
+  WatchdogLogEntry,
 } from '@/types/gateway';
 import { GATEWAY_BASE_URL, ADMIN_TOKEN } from '@/config/gateway';
 
