@@ -77,9 +77,8 @@ export default function OperationsTable({ users, watchdogUsers, onChanged, onMod
             const isOpen = expanded.has(u.id);
             const cfg = watchdogUsers?.[u.id];
             return (
-              <>
+              <Fragment key={u.id}>
                 <TableRow
-                  key={u.id}
                   className="cursor-pointer hover:bg-muted/40"
                   onClick={() => toggle(u.id)}
                 >
