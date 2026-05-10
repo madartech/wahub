@@ -36,7 +36,11 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
   const anyModal = confirmRemove || confirmReset || pauseOpen || testOpen || logsOpen || qrOpen;
   useEffect(() => { onModalChange(anyModal); }, [anyModal, onModalChange]);
 
-  const run = async (label: string, fn: () => Promise<OperationResponse>, opts?: { silentSuccess?: boolean }) => {
+  const run = async (
+    label: string,
+    fn: () => Promise<OperationResponse>,
+    opts?: { silentSuccess?: boolean; delayedRefresh?: boolean },
+  ) => {
     setBusy(true);
     const r = await fn();
     setBusy(false);
@@ -44,13 +48,20 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
       failuresRef.current = 0;
       if (!opts?.silentSuccess) toast({ title: `${label} ✓`, description: user.name });
       onChanged();
+      if (opts?.delayedRefresh) {
+        setTimeout(() => onChanged(), 5000);
+      }
     } else {
       failuresRef.current += 1;
+      const detailStr = `${r.error || ''} ${JSON.stringify(r.detail || '')}`;
+      const containerMissing = /no such container|container.*not.?found|missing/i.test(detailStr);
       toast({
         title: `${label} failed`,
         description: r.notDeployed
           ? 'Endpoint not deployed yet. Apply backend patch.'
-          : `${r.error}${(r.detail as any)?.detail ? ' — ' + (r.detail as any).detail : ''}`,
+          : containerMissing
+            ? 'Container missing — try Provision / Create.'
+            : `${r.error}${(r.detail as any)?.detail ? ' — ' + (r.detail as any).detail : ''}`,
         variant: 'destructive',
       });
       if (failuresRef.current >= 2) {
@@ -77,6 +88,7 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
       await gatewayService.provisionUser(user.id);
       toast({ title: 'Provisioning started', description: user.name });
       onChanged();
+      setTimeout(() => onChanged(), 5000);
     } catch (e) {
       toast({ title: 'Provision failed', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' });
     }
@@ -101,7 +113,7 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
           <DropdownMenuSeparator />
           <DropdownMenuLabel>Container</DropdownMenuLabel>
           <DropdownMenuItem onClick={handleProvision}><Power className="mr-2 h-4 w-4" /> Provision / Create</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => run('Restart', () => gatewayService.restartInstance(user.id))}>
+          <DropdownMenuItem onClick={() => run('Restart', () => gatewayService.restartInstance(user.id), { delayedRefresh: true })}>
             <RotateCw className="mr-2 h-4 w-4" /> Restart
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => run('Stop', () => gatewayService.stopInstance(user.id))}>
@@ -155,7 +167,7 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
         confirmWord="RESET"
         loading={busy}
         onConfirm={async () => {
-          const r = await run('Reset session', () => gatewayService.resetSession(user.id));
+          const r = await run('Reset session', () => gatewayService.resetSession(user.id), { delayedRefresh: true });
           setConfirmReset(false);
           if (r.ok) setQrOpen(true);
         }}
