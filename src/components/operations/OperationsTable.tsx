@@ -29,7 +29,7 @@ function fmtCountdown(s?: string | null) {
   return `${Math.floor(m / 60)}h ${m % 60}m`;
 }
 
-export default function OperationsTable({ users, onChanged, onModalChange }: Props) {
+export default function OperationsTable({ users, watchdogUsers, onChanged, onModalChange }: Props) {
   return (
     <div className="rounded-md border">
       <Table>
