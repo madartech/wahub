@@ -1,12 +1,14 @@
-import { GatewayUser } from '@/types/gateway';
+import { GatewayUser, WatchdogUserConfig } from '@/types/gateway';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import HealthBadge, { StatusBadge } from './HealthBadge';
 import RowActions from './RowActions';
+import WatchdogControls from './WatchdogControls';
 
 interface Props {
   users: GatewayUser[];
+  watchdogUsers?: Record<string, WatchdogUserConfig>;
   onChanged: () => void;
   onModalChange: (open: boolean) => void;
 }
