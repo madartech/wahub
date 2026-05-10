@@ -36,7 +36,11 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
   const anyModal = confirmRemove || confirmReset || pauseOpen || testOpen || logsOpen || qrOpen;
   useEffect(() => { onModalChange(anyModal); }, [anyModal, onModalChange]);
 
-  const run = async (label: string, fn: () => Promise<OperationResponse>, opts?: { silentSuccess?: boolean }) => {
+  const run = async (
+    label: string,
+    fn: () => Promise<OperationResponse>,
+    opts?: { silentSuccess?: boolean; delayedRefresh?: boolean },
+  ) => {
     setBusy(true);
     const r = await fn();
     setBusy(false);
@@ -44,13 +48,20 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
       failuresRef.current = 0;
       if (!opts?.silentSuccess) toast({ title: `${label} ✓`, description: user.name });
       onChanged();
+      if (opts?.delayedRefresh) {
+        setTimeout(() => onChanged(), 5000);
+      }
     } else {
       failuresRef.current += 1;
+      const detailStr = `${r.error || ''} ${JSON.stringify(r.detail || '')}`;
+      const containerMissing = /no such container|container.*not.?found|missing/i.test(detailStr);
       toast({
         title: `${label} failed`,
         description: r.notDeployed
           ? 'Endpoint not deployed yet. Apply backend patch.'
-          : `${r.error}${(r.detail as any)?.detail ? ' — ' + (r.detail as any).detail : ''}`,
+          : containerMissing
+            ? 'Container missing — try Provision / Create.'
+            : `${r.error}${(r.detail as any)?.detail ? ' — ' + (r.detail as any).detail : ''}`,
         variant: 'destructive',
       });
       if (failuresRef.current >= 2) {
