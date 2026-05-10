@@ -45,6 +45,7 @@ export default function OperationsTable({ users, watchdogUsers, onChanged, onMod
             <TableHead>Last activity</TableHead>
             <TableHead className="text-right">1m / 1h / 1d</TableHead>
             <TableHead>Paused</TableHead>
+            <TableHead>Watchdog</TableHead>
             <TableHead className="w-12"></TableHead>
           </TableRow>
         </TableHeader>
