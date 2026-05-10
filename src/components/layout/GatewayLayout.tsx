@@ -88,17 +88,9 @@ export default function GatewayLayout({ children }: GatewayLayoutProps) {
             </NavLink>
           ))}
 
-          {/* Emergency Reset Button */}
-          <button
-            onClick={() => setShowEmergencyReset(true)}
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors w-full',
-              'text-destructive hover:bg-destructive/10'
-            )}
-          >
-            <AlertTriangle className="h-5 w-5" />
-            Emergency Reset
-          </button>
+          <div className="pt-2">
+            <SidebarWatchdogWidget />
+          </div>
         </nav>
 
         <div className="p-4 border-t border-sidebar-border">
