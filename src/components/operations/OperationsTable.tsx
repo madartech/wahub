@@ -1,12 +1,14 @@
-import { GatewayUser } from '@/types/gateway';
+import { GatewayUser, WatchdogUserConfig } from '@/types/gateway';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import HealthBadge, { StatusBadge } from './HealthBadge';
 import RowActions from './RowActions';
+import WatchdogControls from './WatchdogControls';
 
 interface Props {
   users: GatewayUser[];
+  watchdogUsers?: Record<string, WatchdogUserConfig>;
   onChanged: () => void;
   onModalChange: (open: boolean) => void;
 }
@@ -27,7 +29,7 @@ function fmtCountdown(s?: string | null) {
   return `${Math.floor(m / 60)}h ${m % 60}m`;
 }
 
-export default function OperationsTable({ users, onChanged, onModalChange }: Props) {
+export default function OperationsTable({ users, watchdogUsers, onChanged, onModalChange }: Props) {
   return (
     <div className="rounded-md border">
       <Table>
@@ -43,6 +45,7 @@ export default function OperationsTable({ users, onChanged, onModalChange }: Pro
             <TableHead>Last activity</TableHead>
             <TableHead className="text-right">1m / 1h / 1d</TableHead>
             <TableHead>Paused</TableHead>
+            <TableHead>Watchdog</TableHead>
             <TableHead className="w-12"></TableHead>
           </TableRow>
         </TableHeader>
@@ -69,12 +72,15 @@ export default function OperationsTable({ users, onChanged, onModalChange }: Pro
                 {(u.sendStats?.minute ?? 0)} / {(u.sendStats?.hour ?? 0)} / {(u.sendStats?.day ?? 0)}
               </TableCell>
               <TableCell className="text-xs">{fmtCountdown(u.pausedUntil)}</TableCell>
+              <TableCell className="min-w-[180px]">
+                <WatchdogControls user={u} cfg={watchdogUsers?.[u.id]} onChanged={onChanged} compact />
+              </TableCell>
               <TableCell><RowActions user={u} onChanged={onChanged} onModalChange={onModalChange} /></TableCell>
             </TableRow>
           ))}
           {users.length === 0 && (
             <TableRow>
-              <TableCell colSpan={11} className="py-8 text-center text-sm text-muted-foreground">
+              <TableCell colSpan={12} className="py-8 text-center text-sm text-muted-foreground">
                 No instances match the current filter.
               </TableCell>
             </TableRow>
