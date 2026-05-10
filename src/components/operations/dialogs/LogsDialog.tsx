@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -16,25 +16,45 @@ interface Props {
   userName: string;
 }
 
+// Strip ANSI terminal color escape codes
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
+const stripAnsi = (s: string) => s.replace(ANSI_RE, '');
+
 export default function LogsDialog({ open, onOpenChange, userId, userName }: Props) {
   const [lines, setLines] = useState(100);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<LogsResponse | null>(null);
+  const preRef = useRef<HTMLPreElement>(null);
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     const res = await gatewayService.getInstanceLogs(userId, lines);
+    if (res.ok) {
+      res.raw = stripAnsi(res.raw || '');
+      res.lines = (res.lines || []).map(stripAnsi);
+    }
     setLoading(false);
     setResult(res);
   }, [userId, lines]);
 
   useEffect(() => { if (open) fetchLogs(); }, [open, fetchLogs]);
 
+  // Auto-scroll to bottom whenever new logs arrive
+  useEffect(() => {
+    if (preRef.current) {
+      preRef.current.scrollTop = preRef.current.scrollHeight;
+    }
+  }, [result]);
+
   const copyLogs = async () => {
     const txt = result?.raw || (result?.lines || []).join('\n');
     await navigator.clipboard.writeText(txt);
     toast({ title: 'Copied', description: 'Logs copied to clipboard' });
   };
+
+  const isContainerMissing = result && !result.ok &&
+    /no such container|not.?found|missing/i.test(`${result.error} ${JSON.stringify(result.detail || '')}`);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -56,7 +76,15 @@ export default function LogsDialog({ open, onOpenChange, userId, userName }: Pro
             </Button>
           </div>
         </div>
-        <pre className="max-h-[60vh] overflow-auto rounded bg-muted p-3 text-[11px] font-mono leading-snug">
+        {isContainerMissing && (
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+            Container missing — provision or start it before viewing logs.
+          </div>
+        )}
+        <pre
+          ref={preRef}
+          className="max-h-[60vh] overflow-auto rounded bg-muted p-3 text-[11px] font-mono leading-snug"
+        >
 {loading ? 'Loading…' : (result?.raw || (result?.lines || []).join('\n') || '(no output)')}
         </pre>
         <ErrorDetail result={result} />
