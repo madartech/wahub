@@ -1,99 +1,163 @@
-## WhatsApp Gateway Operations — Admin Panel
+## Auto-Healing Watchdog for WhatsApp Gateway
 
-A new Super Admin page at `/admin/operations` for managing WAHA user instances, plus a ready-to-deploy Node.js patch for the gateway server.
+Adds an automated monitor that detects stuck/unhealthy WAHA instances and recovers them safely, with strict safety defaults (auto-restart allowed once; auto-reset opt-in per instance).
 
-### 1. Frontend — new page
+---
 
-Route: `/admin/operations` (protected via existing `GatewayAuthContext`; current admin = Super Admin).
+### 1. Backend patch (`docs/gateway-watchdog-patch.js` — reference, not executed)
 
-**Page layout**
-- Header: title, global "Refresh now" button, auto-refresh indicator (every 30s, paused while QR/Logs modal open).
-- Toolbar: search (name / instanceId / phone), filter chips (All • Healthy • Needs QR • Stuck • Offline • Paused).
-- Desktop: dense table. Mobile (<768px): card list.
+A new drop-in module to attach to `/opt/madar-gateway/app/server.js` alongside the existing operations patch.
 
-**Columns**
-| Name | Instance | Container | Phone / Push name | Status | Health | Last activity | Sent (1m / 1h / 1d) | Paused until | Actions |
+**Persisted config in `store.json` (created if missing):**
+```json
+{
+  "watchdog": {
+    "enabled": false,
+    "autoRestart": true,
+    "autoReset": false,
+    "stuckStartingMinutes": 3,
+    "repeatedFailureWindowMinutes": 15,
+    "intervalMinutes": 2,
+    "adminAlertUserId": null
+  },
+  "watchdogUsers": {
+    "<userId>": { "autoHeal": true, "autoReset": false, "failures": [], "lastAction": null }
+  },
+  "watchdogLogs": [ /* capped ring buffer, max 500 */ ]
+}
+```
 
-**Health badge logic (derived client-side)**
-- `WORKING` → green Healthy
-- `SCAN_QR_CODE` → blue Needs QR
-- `STARTING` >3 min → orange Stuck starting
-- container missing → red Container missing
-- `FAILED` / `STOPPED` / `UNKNOWN` → gray Offline
-- `pausedUntil` in future → purple Paused
+**New endpoints (all `requireAdmin`):**
 
-**Row actions dropdown** (with confirmation modals where dangerous):
-1. Health Check → `GET /admin/users/:id/status`
-2. Get QR / Reconnect → `GET /admin/users/:id/qr-base64` (modal with refresh)
-3. Provision → `POST /admin/users/:id/provision`
-4. Restart → `POST /admin/users/:id/restart`
-5. Stop → `POST /admin/users/:id/stop`
-6. Start → `POST /admin/users/:id/start`
-7. Remove Container → `POST /admin/users/:id/remove-container` (type `REMOVE`)
-8. Reset Session → `POST /admin/users/:id/reset-session` (type `RESET`)
-9. Pause Sending → `POST /admin/users/:id/pause` (minutes input)
-10. Resume Sending → `POST /admin/users/:id/resume`
-11. Test Send → `POST /admin/users/:id/test-send` ({to,text} modal)
-12. Logs → `GET /admin/users/:id/logs?lines=100` (modal, copy button, capped 300)
+| Method | Path | Purpose |
+|---|---|---|
+| GET  | `/admin/watchdog/status` | global config + last run + per-user state |
+| POST | `/admin/watchdog/config` | update global config (partial) |
+| POST | `/admin/users/:id/watchdog-config` | `{autoHeal, autoReset}` per instance |
+| POST | `/admin/watchdog/run-once` | force one watchdog tick now (testing) |
+| GET  | `/admin/watchdog/logs?limit=100` | last N entries from ring buffer |
 
-**Smart hints (toast suggestions)**
-- 422 + status `STARTING` → "Try Restart Instance".
-- 2 consecutive failures on same instance → "Try Reset Session".
-
-**Error handling** — every action shows a toast, plus a `<Collapsible>` "Show error detail" with raw JSON for admin debugging. 404 from new endpoints will display "Endpoint not deployed yet — apply backend patch" so the UI stays usable until the gateway is rebuilt.
-
-**Safety**
-- No bulk restart/reset (no multi-select).
-- Tokens stay masked; admin token never rendered.
-- Destructive actions require typed confirmation.
-
-### 2. Files to add / change
-
-**New**
-- `src/pages/gateway/Operations.tsx` — page shell, search, filters, polling.
-- `src/components/operations/OperationsTable.tsx` — desktop table.
-- `src/components/operations/OperationsCard.tsx` — mobile card.
-- `src/components/operations/HealthBadge.tsx`
-- `src/components/operations/RowActions.tsx` — dropdown wiring all 12 actions.
-- `src/components/operations/dialogs/` — `QrDialog`, `LogsDialog`, `TestSendDialog`, `PauseDialog`, `ConfirmTypedDialog` (REMOVE/RESET).
-- `src/hooks/useGatewayPolling.ts` — 30s polling, pauseable.
-- `docs/gateway-server-patch.js` — **reference-only** patch for `/opt/madar-gateway/app/server.js` (see §3). Not executed by Lovable.
-
-**Edit**
-- `src/services/gateway.ts` — add: `restart, stop, start, removeContainer, resetSession, pause, resume, testSend (admin), getLogs`. All include `X-Admin-Token`, return `{ok, error, detail}` shape.
-- `src/types/gateway.ts` — extend `GatewayUser` with `containerName, pushName, lastActivityAt, pausedUntil, sendStats:{minute,hour,day}`; add `LogsResponse`, `OperationResponse`.
-- `src/App.tsx` — add `/admin/operations` route under `ProtectedRoute`.
-- `src/components/layout/GatewayLayout.tsx` — add "Operations" nav link.
-
-### 3. Backend patch (`docs/gateway-server-patch.js`) — reference only
-
-Drop-in file with all 9 new Express routes for `/opt/madar-gateway/app/server.js`. All use `requireAdmin`, derive container name only from stored `instanceId` via `wahaContainerName(instanceId)`, and use `child_process.execFile` with arg arrays — never shell concatenation.
+**Watchdog tick (every `intervalMinutes`, only if `enabled`):**
 
 ```text
-POST /admin/users/:id/restart           docker restart <container>
-POST /admin/users/:id/stop              docker stop <container>
-POST /admin/users/:id/start             docker start <container>
-POST /admin/users/:id/remove-container  docker rm -f <container>
-POST /admin/users/:id/reset-session     rm -f container → rm -rf /opt/madar-gateway/waha-sessions/<instanceId> → re-provision
-POST /admin/users/:id/pause   {minutes} sets user.pausedUntil = now + minutes
-POST /admin/users/:id/resume            clears user.pausedUntil
-POST /admin/users/:id/test-send {to,text}  proxies through WAHA send
-GET  /admin/users/:id/logs?lines=N      docker logs --tail min(N,300) <container>
+for each user with instanceId and watchdogUsers[id].autoHeal !== false:
+  status = await getInternalStatus(user)        // reuse existing status helper
+  if status === 'WORKING' or 'READY': clear failures; continue
+  if status === 'STARTING':
+     stuckFor = now - statusChangedAt
+     if stuckFor > stuckStartingMinutes:
+        recentFail = failures within repeatedFailureWindowMinutes
+        if recentFail.length === 0 and autoRestart:
+           docker restart <container>     // reuse internal restart
+           log('auto_restart_stuck_starting', WORKING_BEFORE→STARTING)
+           failures.push({at:now, reason:'stuck_starting'})
+        else if recentFail.length >= 1:
+           if user.autoReset === true:
+              docker rm -f <container>
+              rm -rf /opt/madar-gateway/waha-sessions/<instanceId>
+              log('auto_reset_repeated_failure')
+              if adminAlertUserId: wahaSend(adminUser, "...needs QR")
+           else:
+              log('repeated_failure_no_action', reason='auto_reset_off')
 ```
 
-Response contract for all: `{ok:true, ...}` or `{ok:false, error, detail}`. Session folder path hardcoded to `/opt/madar-gateway/waha-sessions/<instanceId>` and validated against `^[a-zA-Z0-9_-]+$` before any FS/Docker call.
+**Safety guarantees enforced in code:**
+- Never touches `WORKING` / `READY` instances.
+- Never deletes user record or token (only container + that one session folder).
+- Path validated to stay inside `SESSIONS_ROOT/<instanceId>` with `^[a-zA-Z0-9_-]+$`.
+- All Docker calls via `execFile` arg arrays — no shell concatenation.
+- No bulk operations: loop is per-instance, sequential, with try/catch isolation.
+- `autoReset` defaults `false`. Global `enabled` defaults `false`.
 
-Frontend will consume the additional fields (`containerName, pushName, lastActivityAt, pausedUntil, sendStats`) you confirmed `GET /admin/users` already returns.
+**Log entry shape (`watchdogLogs[]`):**
+```ts
+{ id, instanceId, userId, action, reason, oldStatus, newStatus, result, details, createdAt }
+```
+Actions: `auto_restart_stuck_starting | auto_reset_repeated_failure | repeated_failure_no_action | skipped_working | check_error | manual_run`.
 
-### 4. Out of scope (per your answers)
-- Audit logging (`gateway_action_logs` table) — skipped.
-- Lovable Cloud / role tables — not added; existing admin login is treated as Super Admin.
+---
 
-### 5. Deployment note (Docker)
-The gateway runs via Docker Compose, not PM2. After pasting `docs/gateway-server-patch.js` into your `server.js`, deploy with:
+### 2. Frontend changes
 
-```bash
-cd /opt/madar-gateway && sudo docker compose up -d --build gateway
+**Types (`src/types/gateway.ts`)**
+Add `WatchdogConfig`, `WatchdogUserConfig`, `WatchdogLogEntry`, `WatchdogStatusResponse`.
+
+**Service (`src/services/gateway.ts`)**
+Add (all via existing `_adminOp` so 404 → notDeployed):
+- `getWatchdogStatus()`
+- `updateWatchdogConfig(partial)`
+- `setUserWatchdogConfig(userId, {autoHeal, autoReset})`
+- `runWatchdogOnce()`
+- `getWatchdogLogs(limit)`
+
+**New page section in `src/pages/gateway/Operations.tsx`**
+
+Add a collapsible "Watchdog" panel at the top of the page (above filters):
+
+```text
+┌─ Watchdog ──────────────────────────────────────────┐
+│ [○ Enabled]  Interval: 2 min   Last run: 12:04:11   │
+│ Defaults: auto-restart ON · auto-reset OFF          │
+│ ⚠ Auto-reset disconnects WhatsApp and requires      │
+│   scanning the QR again.                            │
+│ [Run watchdog now]   [View logs]                    │
+└─────────────────────────────────────────────────────┘
 ```
 
-Frontend ships immediately; the new endpoints will return 404 until you run the rebuild — the UI will show that gracefully so existing functionality keeps working.
+**New components:**
+- `src/components/operations/WatchdogPanel.tsx` — global toggle, interval display, run-now, last run, link to logs. Shows the warning banner.
+- `src/components/operations/WatchdogLogsDialog.tsx` — table of recent log entries (action, reason, instance, time, result). Refreshes on open.
+- `src/components/operations/WatchdogBadges.tsx` — small badges:
+  - `Auto-heal enabled` (slate)
+  - `Restarted by watchdog` (amber, shown for 10 min after last auto restart)
+  - `Repeated failure` (orange)
+  - `Needs QR` (blue)
+  - `Auto-reset disabled` (muted, only when repeated failure + autoReset off)
+
+**Per-instance UI (extend `OperationsTable.tsx` and `OperationsCards.tsx`):**
+Add a new column / card row "Watchdog" with two switches and live state:
+```
+Auto-heal  [●]
+Auto-reset [○]   ⚠ destructive
+Failures: 1  ·  Last action: auto_restart 12:02
+```
+Wired to `setUserWatchdogConfig`. Auto-reset switch shows a typed-confirm ("ENABLE") on first turn-on.
+
+**Integration:**
+- `Operations.tsx` polls `/admin/watchdog/status` alongside its existing 30s tick and merges `watchdogUsers[id]` into each row.
+- Filter chips gain "Watchdog: failure" option.
+- All watchdog fetches gracefully handle `notDeployed` and show "Watchdog backend not deployed yet — apply patch" inline (UI stays usable).
+
+---
+
+### 3. Files
+
+**New**
+- `docs/gateway-watchdog-patch.js`
+- `src/components/operations/WatchdogPanel.tsx`
+- `src/components/operations/WatchdogBadges.tsx`
+- `src/components/operations/dialogs/WatchdogLogsDialog.tsx`
+
+**Edited**
+- `src/types/gateway.ts` — watchdog types
+- `src/services/gateway.ts` — 5 new methods
+- `src/pages/gateway/Operations.tsx` — render panel + merge state
+- `src/components/operations/OperationsTable.tsx` — Watchdog column + badges
+- `src/components/operations/OperationsCards.tsx` — Watchdog row + badges
+
+No database, no Lovable Cloud, no audit table — config and logs live in `store.json` ring buffer (matches existing gateway storage pattern). No changes to existing operations endpoints or to user record schema.
+
+---
+
+### 4. Defaults shipped
+
+```
+global enabled: false      ← admin must turn on
+autoRestart:    true       ← restart-once is safe
+autoReset:      false      ← destructive, opt-in per instance
+stuckStartingMinutes: 3
+repeatedFailureWindowMinutes: 15
+intervalMinutes: 2
+```
+
+After deploy: admin opens Operations → toggles watchdog ON → optionally enables auto-reset on selected instances after typed confirm.
