@@ -110,7 +110,7 @@ export default function OperationsTable({ users, watchdogUsers, onChanged, onMod
                   </TableCell>
                 </TableRow>
                 {isOpen && (
-                  <TableRow key={`${u.id}-x`} className="bg-muted/20 hover:bg-muted/20">
+                  <TableRow className="bg-muted/20 hover:bg-muted/20">
                     <TableCell colSpan={8} className="py-3">
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 px-2">
                         <Detail label="User ID" value={<span className="font-mono text-[11px] break-all">{u.id}</span>} />
@@ -142,7 +142,7 @@ export default function OperationsTable({ users, watchdogUsers, onChanged, onMod
                     </TableCell>
                   </TableRow>
                 )}
-              </>
+              </Fragment>
             );
           })}
           {users.length === 0 && (
