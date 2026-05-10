@@ -88,6 +88,7 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
       await gatewayService.provisionUser(user.id);
       toast({ title: 'Provisioning started', description: user.name });
       onChanged();
+      setTimeout(() => onChanged(), 5000);
     } catch (e) {
       toast({ title: 'Provision failed', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' });
     }
