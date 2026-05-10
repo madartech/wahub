@@ -1,14 +1,27 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { GatewayUser, WatchdogUserConfig } from '@/types/gateway';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import HealthBadge, { StatusBadge } from './HealthBadge';
+import HealthBadge, { StatusBadge, deriveHealth } from './HealthBadge';
 import RowActions from './RowActions';
 import WatchdogControls from './WatchdogControls';
 import WatchdogBadges from './WatchdogBadges';
+
+type SortKey = 'none' | 'health' | 'instance';
+type SortDir = 'asc' | 'desc';
+const HEALTH_ORDER: Record<string, number> = {
+  stuck: 0, starting: 1, needs_qr: 2, offline: 3, paused: 4, healthy: 5,
+};
+function instanceRank(id?: string | null) {
+  if (!id) return Number.MAX_SAFE_INTEGER;
+  const m = /^u(\d+)$/i.exec(id);
+  if (m) return parseInt(m[1], 10);
+  if (id === 'default') return -1;
+  return 1e6;
+}
 
 interface Props {
   users: GatewayUser[];
@@ -48,6 +61,8 @@ function fmtCountdown(s?: string | null) {
 export default function OperationsTable({ users, watchdogUsers, onChanged, onModalChange }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
+  const [sortKey, setSortKey] = useState<SortKey>('none');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
   const PAGE_SIZE = 10;
 
   const toggle = (id: string) => {
@@ -59,10 +74,41 @@ export default function OperationsTable({ users, watchdogUsers, onChanged, onMod
     });
   };
 
-  const totalPages = Math.max(1, Math.ceil(users.length / PAGE_SIZE));
+  const cycleSort = (key: SortKey) => {
+    if (sortKey !== key) { setSortKey(key); setSortDir('asc'); }
+    else if (sortDir === 'asc') setSortDir('desc');
+    else { setSortKey('none'); setSortDir('asc'); }
+    setPage(1);
+  };
+
+  const sortedUsers = useMemo(() => {
+    if (sortKey === 'none') return users;
+    const arr = [...users];
+    arr.sort((a, b) => {
+      let va = 0, vb = 0;
+      if (sortKey === 'health') {
+        va = HEALTH_ORDER[deriveHealth(a).level] ?? 99;
+        vb = HEALTH_ORDER[deriveHealth(b).level] ?? 99;
+      } else if (sortKey === 'instance') {
+        va = instanceRank(a.instanceId);
+        vb = instanceRank(b.instanceId);
+      }
+      return sortDir === 'asc' ? va - vb : vb - va;
+    });
+    return arr;
+  }, [users, sortKey, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedUsers.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const startIdx = (safePage - 1) * PAGE_SIZE;
-  const pageUsers = users.slice(startIdx, startIdx + PAGE_SIZE);
+  const pageUsers = sortedUsers.slice(startIdx, startIdx + PAGE_SIZE);
+
+  const SortIcon = ({ k }: { k: SortKey }) => {
+    if (sortKey !== k) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+    return sortDir === 'asc'
+      ? <ArrowUp className="h-3 w-3" />
+      : <ArrowDown className="h-3 w-3" />;
+  };
 
   return (
     <div className="space-y-2">
@@ -73,9 +119,23 @@ export default function OperationsTable({ users, watchdogUsers, onChanged, onMod
             <TableHead className="w-8"></TableHead>
             <TableHead className="w-10">#</TableHead>
             <TableHead>Name</TableHead>
-            <TableHead className="w-20">Instance</TableHead>
+            <TableHead className="w-20">
+              <button
+                onClick={() => cycleSort('instance')}
+                className="inline-flex items-center gap-1 hover:text-foreground"
+              >
+                Instance <SortIcon k="instance" />
+              </button>
+            </TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Health</TableHead>
+            <TableHead>
+              <button
+                onClick={() => cycleSort('health')}
+                className="inline-flex items-center gap-1 hover:text-foreground"
+              >
+                Health <SortIcon k="health" />
+              </button>
+            </TableHead>
             <TableHead>Phone</TableHead>
             <TableHead>Activity</TableHead>
             <TableHead className="w-12"></TableHead>
