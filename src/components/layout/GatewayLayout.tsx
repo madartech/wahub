@@ -1,11 +1,11 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useGatewayAuth } from '@/contexts/GatewayAuthContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, LogOut, MessageSquare, AlertTriangle, Activity } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, MessageSquare, Activity } from 'lucide-react';
 import { InstallButton } from '@/components/InstallButton';
-import EmergencyResetDialog from '@/components/gateway/EmergencyResetDialog';
+import SidebarWatchdogWidget from '@/components/layout/SidebarWatchdogWidget';
 
 interface GatewayLayoutProps {
   children: ReactNode;
@@ -20,7 +20,6 @@ const navItems = [
 export default function GatewayLayout({ children }: GatewayLayoutProps) {
   const { logout } = useGatewayAuth();
   const navigate = useNavigate();
-  const [showEmergencyReset, setShowEmergencyReset] = useState(false);
 
   const handleLogout = () => {
     logout();
