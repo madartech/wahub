@@ -7,7 +7,9 @@ import {
   ProvisionResponse,
   QRResponse,
   UserStatusResponse,
-  SessionStatus
+  SessionStatus,
+  OperationResponse,
+  LogsResponse,
 } from '@/types/gateway';
 import { GATEWAY_BASE_URL, ADMIN_TOKEN } from '@/config/gateway';
 
