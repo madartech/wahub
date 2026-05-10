@@ -138,8 +138,8 @@ export default function Operations() {
       )}
 
       {isMobile
-        ? <OperationsCards users={filtered} onChanged={fetchAll} onModalChange={setModalOpen} />
-        : <OperationsTable users={filtered} onChanged={fetchAll} onModalChange={setModalOpen} />}
+        ? <OperationsCards users={filtered} watchdogUsers={watchdogUsers} onChanged={fetchAll} onModalChange={setModalOpen} />
+        : <OperationsTable users={filtered} watchdogUsers={watchdogUsers} onChanged={fetchAll} onModalChange={setModalOpen} />}
     </div>
   );
 }
