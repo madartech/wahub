@@ -56,25 +56,25 @@ export default function UsersCounterWidget({ className }: { className?: string }
   }) => (
     <div
       className={cn(
-        'flex items-center gap-1.5 rounded-md border px-2 py-1 min-w-[64px]',
+        'flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 w-full',
         tone === 'total' && 'bg-muted/40 border-border text-foreground',
         tone === 'on' && 'bg-success/10 border-success/30 text-success',
         tone === 'off' && 'bg-destructive/10 border-destructive/30 text-destructive',
       )}
       title={label}
     >
-      <Icon className="h-3.5 w-3.5 shrink-0" />
-      <div className="flex items-baseline gap-1 leading-none">
-        <span className="text-sm font-bold tabular-nums">{value}</span>
-        <span className="text-[10px] uppercase tracking-wide opacity-80">{label}</span>
+      <div className="flex items-center gap-1.5 min-w-0">
+        <Icon className="h-4 w-4 shrink-0" />
+        <span className="text-xs font-medium uppercase tracking-wide truncate">{label}</span>
       </div>
+      <span className="text-base font-bold tabular-nums leading-none">{value}</span>
     </div>
   );
 
   const placeholder = counts === null;
 
   return (
-    <div className={cn('flex items-center gap-1.5', className)}>
+    <div className={cn('flex flex-col gap-1 w-full', className)}>
       <Item icon={Users} value={placeholder ? '–' : counts!.total} label="Total" tone="total" />
       <Item icon={CheckCircle2} value={placeholder ? '–' : counts!.connected} label="On" tone="on" />
       <Item icon={XCircle} value={placeholder ? '–' : counts!.disconnected} label="Off" tone="off" />
