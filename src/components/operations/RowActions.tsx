@@ -167,7 +167,7 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
         confirmWord="RESET"
         loading={busy}
         onConfirm={async () => {
-          const r = await run('Reset session', () => gatewayService.resetSession(user.id));
+          const r = await run('Reset session', () => gatewayService.resetSession(user.id), { delayedRefresh: true });
           setConfirmReset(false);
           if (r.ok) setQrOpen(true);
         }}
