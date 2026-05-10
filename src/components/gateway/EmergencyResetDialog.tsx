@@ -145,9 +145,12 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
     addLog('🔄 Starting reset...');
 
     try {
-      addLog('📡 Calling reset endpoint...');
-      await gatewayService.resetUser(userId);
-      addLog('✅ Reset call successful');
+      addLog('📡 Calling reset-session endpoint...');
+      const op = await gatewayService.resetSession(userId);
+      if (!op.ok) {
+        throw new Error(op.error || 'reset-session failed');
+      }
+      addLog('✅ Reset-session call successful (container removed, session wiped, reprovisioned)');
       
       setPhase('polling');
       pollStartTimeRef.current = Date.now();

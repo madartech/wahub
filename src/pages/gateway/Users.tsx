@@ -454,8 +454,14 @@ export default function Users() {
   const handleDisconnect = async (userId: string, userName: string) => {
     setIsDisconnecting(true);
     try {
-      await gatewayService.disconnectUser(userId);
+      // Consolidated: use Operations endpoint (stops Docker container)
+      const op = await gatewayService.stopInstance(userId);
+      if (!op.ok) {
+        throw new Error(op.error || 'Failed to disconnect');
+      }
       toast.success(`Disconnected ${userName}`);
+      // Auto-refresh status after 5s (container takedown propagation)
+      setTimeout(() => fetchUsersWithStatus(true), 5000);
       fetchUsersWithStatus(true);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to disconnect';
