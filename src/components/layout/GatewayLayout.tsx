@@ -1,11 +1,11 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useGatewayAuth } from '@/contexts/GatewayAuthContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, LogOut, MessageSquare, AlertTriangle, Activity } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, MessageSquare, Activity } from 'lucide-react';
 import { InstallButton } from '@/components/InstallButton';
-import EmergencyResetDialog from '@/components/gateway/EmergencyResetDialog';
+import SidebarWatchdogWidget from '@/components/layout/SidebarWatchdogWidget';
 
 interface GatewayLayoutProps {
   children: ReactNode;
@@ -20,7 +20,6 @@ const navItems = [
 export default function GatewayLayout({ children }: GatewayLayoutProps) {
   const { logout } = useGatewayAuth();
   const navigate = useNavigate();
-  const [showEmergencyReset, setShowEmergencyReset] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -89,17 +88,9 @@ export default function GatewayLayout({ children }: GatewayLayoutProps) {
             </NavLink>
           ))}
 
-          {/* Emergency Reset Button */}
-          <button
-            onClick={() => setShowEmergencyReset(true)}
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors w-full',
-              'text-destructive hover:bg-destructive/10'
-            )}
-          >
-            <AlertTriangle className="h-5 w-5" />
-            Emergency Reset
-          </button>
+          <div className="pt-2">
+            <SidebarWatchdogWidget />
+          </div>
         </nav>
 
         <div className="p-4 border-t border-sidebar-border">
@@ -142,13 +133,6 @@ export default function GatewayLayout({ children }: GatewayLayoutProps) {
         ))}
       </nav>
 
-      {/* Emergency Reset Dialog */}
-      <EmergencyResetDialog 
-        open={showEmergencyReset} 
-        onOpenChange={setShowEmergencyReset}
-        userId="default"
-        userName="Default"
-      />
     </div>
   );
 }
