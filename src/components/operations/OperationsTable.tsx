@@ -72,12 +72,15 @@ export default function OperationsTable({ users, watchdogUsers, onChanged, onMod
                 {(u.sendStats?.minute ?? 0)} / {(u.sendStats?.hour ?? 0)} / {(u.sendStats?.day ?? 0)}
               </TableCell>
               <TableCell className="text-xs">{fmtCountdown(u.pausedUntil)}</TableCell>
+              <TableCell className="min-w-[180px]">
+                <WatchdogControls user={u} cfg={watchdogUsers?.[u.id]} onChanged={onChanged} compact />
+              </TableCell>
               <TableCell><RowActions user={u} onChanged={onChanged} onModalChange={onModalChange} /></TableCell>
             </TableRow>
           ))}
           {users.length === 0 && (
             <TableRow>
-              <TableCell colSpan={11} className="py-8 text-center text-sm text-muted-foreground">
+              <TableCell colSpan={12} className="py-8 text-center text-sm text-muted-foreground">
                 No instances match the current filter.
               </TableCell>
             </TableRow>
