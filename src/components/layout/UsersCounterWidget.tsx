@@ -56,7 +56,7 @@ export default function UsersCounterWidget({ className }: { className?: string }
   }) => (
     <div
       className={cn(
-        'flex items-center gap-1.5 rounded-md border px-2 py-1 min-w-[64px]',
+        'flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 w-full',
         tone === 'total' && 'bg-muted/40 border-border text-foreground',
         tone === 'on' && 'bg-success/10 border-success/30 text-success',
         tone === 'off' && 'bg-destructive/10 border-destructive/30 text-destructive',
@@ -74,7 +74,7 @@ export default function UsersCounterWidget({ className }: { className?: string }
   const placeholder = counts === null;
 
   return (
-    <div className={cn('flex items-center gap-1.5', className)}>
+    <div className={cn('flex flex-col gap-1 w-full', className)}>
       <Item icon={Users} value={placeholder ? '–' : counts!.total} label="Total" tone="total" />
       <Item icon={CheckCircle2} value={placeholder ? '–' : counts!.connected} label="On" tone="on" />
       <Item icon={XCircle} value={placeholder ? '–' : counts!.disconnected} label="Off" tone="off" />
