@@ -368,7 +368,8 @@ export default function UserDetails() {
     if (!id) return;
     setIsDisconnecting(true);
     try {
-      await gatewayService.disconnectUser(id);
+      const op = await gatewayService.stopInstance(id);
+      if (!op.ok) throw new Error(op.error || 'Failed to disconnect');
       await fetchStatus(id);
       toast({
         title: 'Disconnected',
