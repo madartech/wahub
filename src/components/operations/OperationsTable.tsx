@@ -1,10 +1,14 @@
+import { useState } from 'react';
 import { GatewayUser, WatchdogUserConfig } from '@/types/gateway';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { ChevronRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import HealthBadge, { StatusBadge } from './HealthBadge';
 import RowActions from './RowActions';
 import WatchdogControls from './WatchdogControls';
+import WatchdogBadges from './WatchdogBadges';
 
 interface Props {
   users: GatewayUser[];
@@ -20,6 +24,18 @@ function fmtTime(s?: string | null) {
   return d.toLocaleString();
 }
 
+function fmtRelative(s?: string | null) {
+  if (!s) return '—';
+  const ms = Date.now() - new Date(s).getTime();
+  if (isNaN(ms) || ms < 0) return '—';
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
 function fmtCountdown(s?: string | null) {
   if (!s) return '—';
   const ms = new Date(s).getTime() - Date.now();
@@ -30,63 +46,124 @@ function fmtCountdown(s?: string | null) {
 }
 
 export default function OperationsTable({ users, watchdogUsers, onChanged, onModalChange }: Props) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggle = (id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   return (
     <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-8"></TableHead>
             <TableHead className="w-10">#</TableHead>
             <TableHead>Name</TableHead>
-            <TableHead>Instance</TableHead>
-            <TableHead>Container</TableHead>
-            <TableHead>Phone / Push</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Health</TableHead>
-            <TableHead>Last activity</TableHead>
-            <TableHead className="text-right">1m / 1h / 1d</TableHead>
-            <TableHead>Paused</TableHead>
-            <TableHead>Watchdog</TableHead>
+            <TableHead>Phone</TableHead>
+            <TableHead>Activity</TableHead>
             <TableHead className="w-12"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {users.map((u, i) => (
-            <TableRow key={u.id}>
-              <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
-              <TableCell>
-                <div className="font-medium">{u.name}</div>
-                <div className="text-[10px] font-mono text-muted-foreground">{u.id}</div>
-              </TableCell>
-              <TableCell className="font-mono text-xs">{u.instanceId || '—'}</TableCell>
-              <TableCell className="font-mono text-xs">
-                {u.containerName || (u.instanceId ? `waha_${u.instanceId}` : '—')}
-              </TableCell>
-              <TableCell className="text-xs">
-                <div>{u.phoneNumber || u.me?.id || '—'}</div>
-                <div className="text-muted-foreground">{u.pushName || u.me?.pushName || ''}</div>
-              </TableCell>
-              <TableCell><StatusBadge status={u.sessionStatus} /></TableCell>
-              <TableCell><HealthBadge user={u} /></TableCell>
-              <TableCell className="text-xs text-muted-foreground">{fmtTime(u.lastActivityAt)}</TableCell>
-              <TableCell className="text-right text-xs font-mono">
-                {(u.sendStats?.minute ?? 0)} / {(u.sendStats?.hour ?? 0)} / {(u.sendStats?.day ?? 0)}
-              </TableCell>
-              <TableCell className="text-xs">{fmtCountdown(u.pausedUntil)}</TableCell>
-              <TableCell className="min-w-[180px]">
-                <WatchdogControls user={u} cfg={watchdogUsers?.[u.id]} onChanged={onChanged} compact />
-              </TableCell>
-              <TableCell><RowActions user={u} onChanged={onChanged} onModalChange={onModalChange} /></TableCell>
-            </TableRow>
-          ))}
+          {users.map((u, i) => {
+            const isOpen = expanded.has(u.id);
+            const cfg = watchdogUsers?.[u.id];
+            return (
+              <>
+                <TableRow
+                  key={u.id}
+                  className="cursor-pointer hover:bg-muted/40"
+                  onClick={() => toggle(u.id)}
+                >
+                  <TableCell className="py-2">
+                    <ChevronRight
+                      className={cn(
+                        'h-4 w-4 text-muted-foreground transition-transform',
+                        isOpen && 'rotate-90',
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell className="py-2 text-xs text-muted-foreground">{i + 1}</TableCell>
+                  <TableCell className="py-2">
+                    <div className="font-medium text-sm leading-tight">{u.name}</div>
+                    <div className="text-[10px] font-mono text-muted-foreground">
+                      {u.instanceId || '—'}
+                    </div>
+                  </TableCell>
+                  <TableCell className="py-2"><StatusBadge status={u.sessionStatus} /></TableCell>
+                  <TableCell className="py-2"><HealthBadge user={u} /></TableCell>
+                  <TableCell className="py-2 text-xs">
+                    {u.phoneNumber || u.me?.id || <span className="text-muted-foreground">—</span>}
+                  </TableCell>
+                  <TableCell className="py-2 text-xs text-muted-foreground">
+                    {fmtRelative(u.lastActivityAt)}
+                  </TableCell>
+                  <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
+                    <RowActions user={u} onChanged={onChanged} onModalChange={onModalChange} />
+                  </TableCell>
+                </TableRow>
+                {isOpen && (
+                  <TableRow key={`${u.id}-x`} className="bg-muted/20 hover:bg-muted/20">
+                    <TableCell colSpan={8} className="py-3">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 px-2">
+                        <Detail label="User ID" value={<span className="font-mono text-[11px] break-all">{u.id}</span>} />
+                        <Detail label="Container" value={<span className="font-mono text-xs">{u.containerName || (u.instanceId ? `waha_${u.instanceId}` : '—')}</span>} />
+                        <Detail label="Push name" value={<span className="text-xs">{u.pushName || u.me?.pushName || '—'}</span>} />
+                        <Detail label="Last activity" value={<span className="text-xs">{fmtTime(u.lastActivityAt)}</span>} />
+                        <Detail
+                          label="Sends (1m / 1h / 1d)"
+                          value={
+                            <span className="font-mono text-xs">
+                              {u.sendStats?.minute ?? 0} / {u.sendStats?.hour ?? 0} / {u.sendStats?.day ?? 0}
+                            </span>
+                          }
+                        />
+                        <Detail label="Paused" value={<span className="text-xs">{fmtCountdown(u.pausedUntil)}</span>} />
+                        <Detail
+                          label="Watchdog flags"
+                          value={<WatchdogBadges user={u} cfg={cfg} />}
+                        />
+                        <Detail
+                          label="Watchdog controls"
+                          value={
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <WatchdogControls user={u} cfg={cfg} onChanged={onChanged} compact />
+                            </div>
+                          }
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </>
+            );
+          })}
           {users.length === 0 && (
             <TableRow>
-              <TableCell colSpan={12} className="py-8 text-center text-sm text-muted-foreground">
+              <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
                 No instances match the current filter.
               </TableCell>
             </TableRow>
           )}
         </TableBody>
       </Table>
+    </div>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div>{value}</div>
     </div>
   );
 }
