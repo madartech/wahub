@@ -43,24 +43,37 @@ export default function Operations() {
       setLoading(false);
       return;
     }
-    // Enrich with live status (in parallel, capped)
-    const enriched = await Promise.all(
-      list.users.map(async (u) => {
-        try {
-          const s = await gatewayService.getUserStatus(u.id);
-          return {
-            ...u,
-            sessionStatus: (s.session?.status || u.sessionStatus || 'UNKNOWN') as SessionStatus,
-            phoneNumber: s.phoneNumber ?? u.phoneNumber ?? null,
-            pushName: s.me?.pushName ?? u.pushName ?? null,
-            me: s.me ?? u.me ?? null,
-          } as GatewayUser;
-        } catch {
-          return u;
+    // Show list immediately with cached status, then enrich live with capped concurrency
+    setUsers(list.users as GatewayUser[]);
+
+    const queue = [...list.users];
+    const concurrency = 6;
+    const enriched: GatewayUser[] = [...(list.users as GatewayUser[])];
+    const byId = new Map(enriched.map((u, i) => [u.id, i] as const));
+
+    await Promise.all(
+      Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
+        while (queue.length) {
+          const u = queue.shift()!;
+          try {
+            const s = await gatewayService.getUserStatus(u.id);
+            const idx = byId.get(u.id);
+            if (idx !== undefined) {
+              enriched[idx] = {
+                ...enriched[idx],
+                sessionStatus: (s.session?.status || u.sessionStatus || 'UNKNOWN') as SessionStatus,
+                phoneNumber: s.phoneNumber ?? u.phoneNumber ?? null,
+                pushName: s.me?.pushName ?? u.pushName ?? null,
+                me: s.me ?? u.me ?? null,
+              } as GatewayUser;
+              setUsers([...enriched]);
+            }
+          } catch {
+            // keep cached
+          }
         }
       })
     );
-    setUsers(enriched);
     setLastRefresh(new Date());
     setLoading(false);
   }, []);

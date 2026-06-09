@@ -167,7 +167,7 @@ export const gatewayService = {
   // Get user status - returns full session info (with 5s timeout)
   async getUserStatus(userId: string): Promise<UserStatusResponse> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     
     try {
       const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/status`, {
