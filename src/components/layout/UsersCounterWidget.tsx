@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { gatewayService } from '@/services/gateway';
 import { deriveHealth } from '@/components/operations/HealthBadge';
-import { GatewayUser, SessionStatus } from '@/types/gateway';
 import { Users, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -11,29 +10,19 @@ export default function UsersCounterWidget({ className }: { className?: string }
   const [counts, setCounts] = useState<Counts | null>(null);
 
   const fetchCounts = useCallback(async () => {
+    // Use only the cheap /admin/users list — no per-user status fan-out.
+    // sessionStatus on the list reflects the last known WAHA state, which is
+    // enough for the header counter. Live per-user truth lives on Operations.
     const list = await gatewayService.getUsers();
     if (!list.ok) return;
-    const enriched = await Promise.all(
-      list.users.map(async (u): Promise<GatewayUser> => {
-        try {
-          const s = await gatewayService.getUserStatus(u.id);
-          return {
-            ...u,
-            sessionStatus: (s.session?.status || u.sessionStatus || 'UNKNOWN') as SessionStatus,
-          };
-        } catch {
-          return u;
-        }
-      })
-    );
     let connected = 0;
-    enriched.forEach((u) => {
+    list.users.forEach((u) => {
       if (deriveHealth(u).level === 'healthy') connected++;
     });
     setCounts({
-      total: enriched.length,
+      total: list.users.length,
       connected,
-      disconnected: enriched.length - connected,
+      disconnected: list.users.length - connected,
     });
   }, []);
 
