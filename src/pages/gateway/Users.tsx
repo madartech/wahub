@@ -416,12 +416,14 @@ export default function Users() {
               
               if (currentFetchId !== fetchIdRef.current) return;
               
+              const newStatus = statusResult.session?.status || 'UNKNOWN';
+              statusCache.set(user.id, newStatus);
               setUsers((prev) =>
                 prev.map((u) =>
                   u.id === user.id
                     ? {
                         ...u,
-                        sessionStatus: statusResult.session?.status || 'UNKNOWN',
+                        sessionStatus: newStatus,
                         phoneNumber: statusResult.phoneNumber || u.phoneNumber,
                         me: statusResult.me,
                       }
@@ -431,6 +433,7 @@ export default function Users() {
             } catch {
               // keep existing status/phone
             }
+
           }
         })
       );
