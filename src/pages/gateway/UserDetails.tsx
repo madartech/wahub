@@ -75,6 +75,7 @@ export default function UserDetails() {
 
   // Reset dialog state
   const [showResetDialog, setShowResetDialog] = useState(false);
+  const [showPairDialog, setShowPairDialog] = useState(false);
 
   // Cleanup polling on unmount
   useEffect(() => {
