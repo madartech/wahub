@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RefreshCw, Search, Activity } from 'lucide-react';
 import { gatewayService } from '@/services/gateway';
+import { statusCache } from '@/services/statusCache';
+
 import { GatewayUser, HealthLevel, SessionStatus, WatchdogUserConfig } from '@/types/gateway';
 import OperationsTable from '@/components/operations/OperationsTable';
 import OperationsCards from '@/components/operations/OperationsCards';
@@ -57,11 +59,14 @@ export default function Operations() {
           const u = queue.shift()!;
           try {
             const s = await gatewayService.getUserStatus(u.id);
+            const newStatus = (s.session?.status || u.sessionStatus || 'UNKNOWN') as SessionStatus;
+            statusCache.set(u.id, newStatus);
             const idx = byId.get(u.id);
+
             if (idx !== undefined) {
               enriched[idx] = {
                 ...enriched[idx],
-                sessionStatus: (s.session?.status || u.sessionStatus || 'UNKNOWN') as SessionStatus,
+                sessionStatus: newStatus,
                 phoneNumber: s.phoneNumber ?? u.phoneNumber ?? null,
                 pushName: s.me?.pushName ?? u.pushName ?? null,
                 me: s.me ?? u.me ?? null,
