@@ -26,6 +26,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
+import { statusCache } from '@/services/statusCache';
+
 import { GatewayUser, getConnectionState, UserConnectionState } from '@/types/gateway';
 import { Plus, Eye, Loader2, AlertCircle, RefreshCw, Trash2, Pencil, Check, X, Unplug, RotateCcw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
