@@ -26,6 +26,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
+import { statusCache } from '@/services/statusCache';
+
 import { GatewayUser, getConnectionState, UserConnectionState } from '@/types/gateway';
 import { Plus, Eye, Loader2, AlertCircle, RefreshCw, Trash2, Pencil, Check, X, Unplug, RotateCcw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -416,12 +418,14 @@ export default function Users() {
               
               if (currentFetchId !== fetchIdRef.current) return;
               
+              const newStatus = statusResult.session?.status || 'UNKNOWN';
+              statusCache.set(user.id, newStatus);
               setUsers((prev) =>
                 prev.map((u) =>
                   u.id === user.id
                     ? {
                         ...u,
-                        sessionStatus: statusResult.session?.status || 'UNKNOWN',
+                        sessionStatus: newStatus,
                         phoneNumber: statusResult.phoneNumber || u.phoneNumber,
                         me: statusResult.me,
                       }
@@ -431,6 +435,7 @@ export default function Users() {
             } catch {
               // keep existing status/phone
             }
+
           }
         })
       );

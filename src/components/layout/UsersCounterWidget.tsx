@@ -1,36 +1,75 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { gatewayService } from '@/services/gateway';
 import { deriveHealth } from '@/components/operations/HealthBadge';
+import { statusCache } from '@/services/statusCache';
+import { GatewayUser, SessionStatus } from '@/types/gateway';
 import { Users, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Counts { total: number; connected: number; disconnected: number }
 
+function countFrom(list: GatewayUser[]): Counts {
+  let connected = 0;
+  list.forEach((u) => {
+    const cached = statusCache.get(u.id);
+    const effective: SessionStatus = cached || u.sessionStatus || 'UNKNOWN';
+    const merged = { ...u, sessionStatus: effective } as GatewayUser;
+    if (deriveHealth(merged).level === 'healthy') connected++;
+  });
+  return {
+    total: list.length,
+    connected,
+    disconnected: list.length - connected,
+  };
+}
+
 export default function UsersCounterWidget({ className }: { className?: string }) {
   const [counts, setCounts] = useState<Counts | null>(null);
+  const usersRef = useRef<GatewayUser[]>([]);
 
-  const fetchCounts = useCallback(async () => {
-    // Use only the cheap /admin/users list — no per-user status fan-out.
-    // sessionStatus on the list reflects the last known WAHA state, which is
-    // enough for the header counter. Live per-user truth lives on Operations.
-    const list = await gatewayService.getUsers();
-    if (!list.ok) return;
-    let connected = 0;
-    list.users.forEach((u) => {
-      if (deriveHealth(u).level === 'healthy') connected++;
-    });
-    setCounts({
-      total: list.users.length,
-      connected,
-      disconnected: list.users.length - connected,
-    });
+  const recompute = useCallback(() => {
+    setCounts(countFrom(usersRef.current));
   }, []);
 
+  const fetchAndEnrich = useCallback(async () => {
+    const list = await gatewayService.getUsers();
+    if (!list.ok) return;
+    usersRef.current = list.users;
+    recompute();
+
+    // Background top-up: only for users we don't have a fresh cache entry for.
+    // Capped concurrency keeps the gateway happy.
+    const stale = list.users.filter((u) => {
+      const age = statusCache.getAge(u.id);
+      return age === undefined || age > 90_000;
+    });
+    const queue = [...stale];
+    const concurrency = 4;
+    await Promise.all(
+      Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
+        while (queue.length) {
+          const u = queue.shift()!;
+          try {
+            const s = await gatewayService.getUserStatus(u.id);
+            statusCache.set(u.id, (s.session?.status || 'UNKNOWN') as SessionStatus);
+          } catch {
+            // ignore
+          }
+        }
+      })
+    );
+    recompute();
+  }, [recompute]);
+
   useEffect(() => {
-    fetchCounts();
-    const id = setInterval(fetchCounts, 60_000);
-    return () => clearInterval(id);
-  }, [fetchCounts]);
+    fetchAndEnrich();
+    const id = setInterval(fetchAndEnrich, 120_000);
+    const unsub = statusCache.subscribe(recompute);
+    return () => {
+      clearInterval(id);
+      unsub();
+    };
+  }, [fetchAndEnrich, recompute]);
 
   const Item = ({
     icon: Icon,
