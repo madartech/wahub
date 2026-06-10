@@ -109,6 +109,7 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
           <DropdownMenuLabel>Diagnostics</DropdownMenuLabel>
           <DropdownMenuItem onClick={handleHealth}><HeartPulse className="mr-2 h-4 w-4" /> Health check</DropdownMenuItem>
           <DropdownMenuItem onClick={() => setQrOpen(true)}><QrCode className="mr-2 h-4 w-4" /> Get QR / Reconnect</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setPairOpen(true)}><Smartphone className="mr-2 h-4 w-4" /> Generate Code</DropdownMenuItem>
           <DropdownMenuItem onClick={() => setLogsOpen(true)}><FileText className="mr-2 h-4 w-4" /> View logs</DropdownMenuItem>
           <DropdownMenuItem onClick={() => setTestOpen(true)}><Send className="mr-2 h-4 w-4" /> Test send</DropdownMenuItem>
 
