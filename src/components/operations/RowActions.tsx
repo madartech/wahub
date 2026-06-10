@@ -6,7 +6,7 @@ import {
 import { Button } from '@/components/ui/button';
 import {
   MoreHorizontal, HeartPulse, QrCode, Power, RotateCw, Square, Play,
-  Trash2, RefreshCcw, PauseCircle, PlayCircle, Send, FileText,
+  Trash2, RefreshCcw, PauseCircle, PlayCircle, Send, FileText, Smartphone,
 } from 'lucide-react';
 import { GatewayUser, OperationResponse } from '@/types/gateway';
 import { gatewayService } from '@/services/gateway';
