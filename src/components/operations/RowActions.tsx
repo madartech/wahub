@@ -190,6 +190,7 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
       <TestSendDialog open={testOpen} onOpenChange={setTestOpen} userId={user.id} userName={user.name} />
       <LogsDialog open={logsOpen} onOpenChange={setLogsOpen} userId={user.id} userName={user.name} />
       <QrDialog open={qrOpen} onOpenChange={setQrOpen} userId={user.id} userName={user.name} onConnected={onChanged} />
+      <PairingCodeDialog open={pairOpen} onOpenChange={setPairOpen} userId={user.id} userName={user.name} onConnected={onChanged} />
     </>
   );
 }
