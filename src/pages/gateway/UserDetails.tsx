@@ -718,15 +718,25 @@ export default function UserDetails() {
               </div>
             )}
 
-            {/* Scan QR Button - only when status is SCAN_QR_CODE */}
+            {/* Scan QR + Pairing Code Buttons - when status is SCAN_QR_CODE */}
             {showScanQrButton && (
-              <Button 
-                onClick={handleOpenQrModal}
-                className="w-full h-12 text-base min-h-[44px]"
-              >
-                <QrCode className="mr-2 h-5 w-5" />
-                Scan QR Code
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  onClick={handleOpenQrModal}
+                  className="flex-1 h-12 text-base min-h-[44px]"
+                >
+                  <QrCode className="mr-2 h-5 w-5" />
+                  Scan QR Code
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPairDialog(true)}
+                  className="flex-1 h-12 text-base min-h-[44px]"
+                >
+                  <Smartphone className="mr-2 h-5 w-5" />
+                  Generate Code
+                </Button>
+              </div>
             )}
 
             {/* Connected Info + Disconnect/Reset */}
