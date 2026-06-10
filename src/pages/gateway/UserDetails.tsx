@@ -879,6 +879,17 @@ export default function UserDetails() {
           onSuccess={() => { if (id) fetchStatus(id); }}
         />
       )}
+
+      {/* Pairing Code Dialog */}
+      {id && (
+        <PairingCodeDialog
+          open={showPairDialog}
+          onOpenChange={setShowPairDialog}
+          userId={id}
+          userName={user.name}
+          onConnected={() => { if (id) fetchStatus(id); }}
+        />
+      )}
     </div>
   );
 }
