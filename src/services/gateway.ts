@@ -214,6 +214,49 @@ export const gatewayService = {
     }
   },
 
+  // Get WhatsApp pairing code (alternative to QR)
+  async getPairingCode(userId: string, phone: string): Promise<{
+    ok: boolean;
+    code?: string;
+    phoneNumber?: string;
+    instanceId?: string;
+    error?: string;
+    detail?: string;
+    notProvisioned?: boolean;
+  }> {
+    try {
+      const res = await fetch(
+        `${GATEWAY_BASE_URL}/admin/users/${userId}/pairing-code?phone=${encodeURIComponent(phone)}`,
+        { method: 'GET', headers: { 'X-Admin-Token': ADMIN_TOKEN } },
+      );
+      const text = await res.text();
+      let data: any = null;
+      try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
+      if (!res.ok) {
+        const err = data?.error || data?.message || `HTTP ${res.status}`;
+        const notProvisioned =
+          res.status === 404 ||
+          /fetch|status|provision|no such container|container.*not.?found|missing/i.test(
+            `${err} ${JSON.stringify(data?.detail || '')}`,
+          );
+        return {
+          ok: false,
+          error: err,
+          detail: typeof data?.detail === 'string' ? data.detail : data?.detail ? JSON.stringify(data.detail) : undefined,
+          notProvisioned,
+        };
+      }
+      return {
+        ok: true,
+        code: data?.code || data?.raw?.code,
+        phoneNumber: data?.phoneNumber,
+        instanceId: data?.instanceId,
+      };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : 'network_error' };
+    }
+  },
+
   // Test send message (admin endpoint)
   async testSendMessage(userId: string, payload: SendMessagePayload): Promise<SendMessageResponse> {
     const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/test-send`, {

@@ -8,11 +8,12 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
 import { GatewayUser, getConnectionState, SessionStatus, UserConnectionState } from '@/types/gateway';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Copy, Loader2, QrCode, RefreshCw, CheckCircle, AlertCircle, Eye, EyeOff, Send, Phone, Key, Unplug, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Copy, Loader2, QrCode, RefreshCw, CheckCircle, AlertCircle, Eye, EyeOff, Send, Phone, Key, Unplug, RotateCcw, Smartphone } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import EmergencyResetDialog from '@/components/gateway/EmergencyResetDialog';
+import PairingCodeDialog from '@/components/operations/dialogs/PairingCodeDialog';
 
 const POLL_INTERVAL = 2000; // 2 seconds
 const MAX_POLL_TIME = 90000; // 90 seconds
@@ -74,6 +75,7 @@ export default function UserDetails() {
 
   // Reset dialog state
   const [showResetDialog, setShowResetDialog] = useState(false);
+  const [showPairDialog, setShowPairDialog] = useState(false);
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -716,15 +718,25 @@ export default function UserDetails() {
               </div>
             )}
 
-            {/* Scan QR Button - only when status is SCAN_QR_CODE */}
+            {/* Scan QR + Pairing Code Buttons - when status is SCAN_QR_CODE */}
             {showScanQrButton && (
-              <Button 
-                onClick={handleOpenQrModal}
-                className="w-full h-12 text-base min-h-[44px]"
-              >
-                <QrCode className="mr-2 h-5 w-5" />
-                Scan QR Code
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  onClick={handleOpenQrModal}
+                  className="flex-1 h-12 text-base min-h-[44px]"
+                >
+                  <QrCode className="mr-2 h-5 w-5" />
+                  Scan QR Code
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPairDialog(true)}
+                  className="flex-1 h-12 text-base min-h-[44px]"
+                >
+                  <Smartphone className="mr-2 h-5 w-5" />
+                  Generate Code
+                </Button>
+              </div>
             )}
 
             {/* Connected Info + Disconnect/Reset */}
@@ -865,6 +877,17 @@ export default function UserDetails() {
           userId={id}
           userName={user.name}
           onSuccess={() => { if (id) fetchStatus(id); }}
+        />
+      )}
+
+      {/* Pairing Code Dialog */}
+      {id && (
+        <PairingCodeDialog
+          open={showPairDialog}
+          onOpenChange={setShowPairDialog}
+          userId={id}
+          userName={user.name}
+          onConnected={() => { if (id) fetchStatus(id); }}
         />
       )}
     </div>
