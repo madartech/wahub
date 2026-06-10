@@ -16,6 +16,7 @@ import PauseDialog from './dialogs/PauseDialog';
 import TestSendDialog from './dialogs/TestSendDialog';
 import LogsDialog from './dialogs/LogsDialog';
 import QrDialog from './dialogs/QrDialog';
+import PairingCodeDialog from './dialogs/PairingCodeDialog';
 
 interface Props {
   user: GatewayUser;
