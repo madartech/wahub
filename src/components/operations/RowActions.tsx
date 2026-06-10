@@ -31,10 +31,11 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
   const [testOpen, setTestOpen] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [pairOpen, setPairOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const failuresRef = useRef(0);
 
-  const anyModal = confirmRemove || confirmReset || pauseOpen || testOpen || logsOpen || qrOpen;
+  const anyModal = confirmRemove || confirmReset || pauseOpen || testOpen || logsOpen || qrOpen || pairOpen;
   useEffect(() => { onModalChange(anyModal); }, [anyModal, onModalChange]);
 
   const run = async (
