@@ -88,12 +88,15 @@ export default function VpsHealthCard() {
         ),
       );
 
+  const uptimeBad = uptimePct != null && uptimePct < 60;
+  const latencyBad = avgLatency != null && avgLatency > 1500;
+
   const overall: 'online' | 'degraded' | 'offline' | 'checking' =
     history.length === 0
       ? 'checking'
       : !last?.ok
         ? 'offline'
-        : (uptimePct ?? 100) < 80 || (avgLatency ?? 0) > 800
+        : uptimeBad || latencyBad
           ? 'degraded'
           : 'online';
 
@@ -102,6 +105,17 @@ export default function VpsHealthCard() {
     : overall === 'degraded' ? <Badge className="bg-warning text-warning-foreground">Degraded</Badge>
     : overall === 'offline' ? <Badge variant="destructive">Offline</Badge>
     : <Badge variant="secondary">Checking…</Badge>;
+
+  let statusReason = '';
+  if (overall === 'online') statusReason = 'Gateway responding normally';
+  else if (overall === 'offline') statusReason = 'Last ping failed — gateway not responding';
+  else if (overall === 'checking') statusReason = 'Running first health check…';
+  else {
+    const reasons: string[] = [];
+    if (uptimeBad) reasons.push(`${successes.length}/${history.length} successful pings`);
+    if (latencyBad) reasons.push(`avg ${avgLatency} ms`);
+    statusReason = reasons.length ? `Degraded: ${reasons.join(' · ')}` : 'Reachable but unhealthy';
+  }
 
   const tier = avgLatency == null ? null : latencyTier(avgLatency);
 
@@ -121,13 +135,9 @@ export default function VpsHealthCard() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {overallBadge}
-            <span className="text-sm text-muted-foreground">
-              {overall === 'online' && 'Gateway responding normally'}
-              {overall === 'degraded' && 'Reachable but slow or flaky'}
-              {overall === 'offline' && 'Gateway not responding'}
-              {overall === 'checking' && 'Running first health check…'}
-            </span>
+            <span className="text-sm text-muted-foreground">{statusReason}</span>
           </div>
+
           <Button variant="ghost" size="sm" onClick={runPing} disabled={isChecking}>
             <RefreshCw className={cn('h-4 w-4', isChecking && 'animate-spin')} />
           </Button>
