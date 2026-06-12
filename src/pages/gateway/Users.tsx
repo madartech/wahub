@@ -359,6 +359,11 @@ export default function Users() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 10;
+
+  // Scroll to top when page changes (especially helpful on mobile)
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentPage]);
   const navigate = useNavigate();
   
   // Reset dialog state
