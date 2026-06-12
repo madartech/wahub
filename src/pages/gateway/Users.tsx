@@ -415,11 +415,13 @@ export default function Users() {
       const prevById = new Map(prev.map((u) => [u.id, u] as const));
       return result.users.map((user) => {
         const prevUser = prevById.get(user.id);
+        const phone = prevUser?.phoneNumber ?? (user as GatewayUser).phoneNumber ?? null;
+        saveLastPhone(user.id, phone);
         return {
           ...user,
           name: storedNames[user.id] || user.name,
           sessionStatus: prevUser?.sessionStatus ?? user.sessionStatus ?? 'UNKNOWN',
-          phoneNumber: prevUser?.phoneNumber ?? (user as GatewayUser).phoneNumber ?? null,
+          phoneNumber: phone,
           me: prevUser?.me ?? (user as GatewayUser).me ?? null,
         } as GatewayUser;
       });
