@@ -445,6 +445,7 @@ export default function Users() {
               
               const newStatus = statusResult.session?.status || 'UNKNOWN';
               statusCache.set(user.id, newStatus);
+              saveLastPhone(user.id, statusResult.phoneNumber || statusResult.me?.id);
               setUsers((prev) =>
                 prev.map((u) =>
                   u.id === user.id
@@ -466,6 +467,7 @@ export default function Users() {
       );
     })();
   }, []);
+
 
   const handleDelete = async (userId: string, userName: string) => {
     setIsDeleting(true);
