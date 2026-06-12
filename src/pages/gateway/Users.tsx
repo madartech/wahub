@@ -335,6 +335,7 @@ function UserRow({ user, index, connectionState, navigate, onDelete, onDisconnec
 }
 
 const DISPLAY_NAMES_KEY = 'gateway_user_display_names';
+const LAST_PHONES_KEY = 'gateway_user_last_phones';
 
 function getStoredDisplayNames(): Record<string, string> {
   try {
@@ -349,6 +350,25 @@ function saveDisplayName(userId: string, name: string) {
   stored[userId] = name;
   localStorage.setItem(DISPLAY_NAMES_KEY, JSON.stringify(stored));
 }
+
+function getStoredLastPhones(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(LAST_PHONES_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function saveLastPhone(userId: string, phone?: string | null) {
+  if (!phone) return;
+  const digits = String(phone).replace(/\D/g, '');
+  if (!digits) return;
+  const stored = getStoredLastPhones();
+  if (stored[userId] === digits) return;
+  stored[userId] = digits;
+  localStorage.setItem(LAST_PHONES_KEY, JSON.stringify(stored));
+}
+
 
 export default function Users() {
   const [users, setUsers] = useState<GatewayUser[]>([]);
