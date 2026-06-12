@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Users, Link, Copy } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import VpsHealthCard from '@/components/dashboard/VpsHealthCard';
+import SentMessagesCard from '@/components/dashboard/SentMessagesCard';
 
 export default function Dashboard() {
   const [usersCount, setUsersCount] = useState<number | null>(null);
