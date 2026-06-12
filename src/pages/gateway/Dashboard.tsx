@@ -2,14 +2,13 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { gatewayService } from '@/services/gateway';
 import { useToast } from '@/hooks/use-toast';
-import { Activity, Users, RefreshCw, ArrowRight, Link, Copy } from 'lucide-react';
+import { Users, Link, Copy } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import VpsHealthCard from '@/components/dashboard/VpsHealthCard';
+
 export default function Dashboard() {
-  const [isOnline, setIsOnline] = useState<boolean | null>(null);
-  const [isChecking, setIsChecking] = useState(false);
   const [usersCount, setUsersCount] = useState<number | null>(null);
   const [usersError, setUsersError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -23,12 +22,6 @@ export default function Dashboard() {
       description: 'Gateway URL copied to clipboard',
     });
   };
-  const checkHealth = async () => {
-    setIsChecking(true);
-    const result = await gatewayService.checkHealth();
-    setIsOnline(result.ok);
-    setIsChecking(false);
-  };
   const fetchUsersCount = async () => {
     const result = await gatewayService.getUsers();
     if (result.ok) {
@@ -39,9 +32,9 @@ export default function Dashboard() {
     }
   };
   useEffect(() => {
-    checkHealth();
     fetchUsersCount();
   }, []);
+
   return <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
@@ -69,30 +62,10 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
+      <VpsHealthCard />
+
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Health Status Card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div className="space-y-1">
-              <CardTitle className="text-lg font-medium">Gateway Status</CardTitle>
-              <CardDescription>Backend health check</CardDescription>
-            </div>
-            <Activity className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {isOnline === null ? <Badge variant="secondary">Checking...</Badge> : isOnline ? <Badge className="bg-success text-success-foreground">Online</Badge> : <Badge variant="destructive">Offline</Badge>}
-                <span className="text-sm text-muted-foreground">
-                  {isOnline === null ? 'Checking gateway...' : isOnline ? 'Gateway is responding' : 'Gateway is not responding'}
-                </span>
-              </div>
-              <Button variant="ghost" size="sm" onClick={checkHealth} disabled={isChecking}>
-                <RefreshCw className={`h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+
 
         {/* Users Card */}
         <Card>
