@@ -104,23 +104,18 @@ export default function Dashboard() {
             <Users className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-              <div>
-                {usersError ? <p className="text-sm text-destructive">{usersError}</p> : usersCount === null ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-9 w-12" />
-                    <Skeleton className="h-4 w-28" />
-                  </div>
-                ) : <>
-                    <div className="text-3xl font-bold">{usersCount}</div>
-                    <p className="text-sm text-muted-foreground">Registered users</p>
-                  </>}
-              </div>
-              <Button onClick={() => navigate('/users')} className="w-full lg:w-auto">
-                View Users
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+            <div>
+              {usersError ? <p className="text-sm text-destructive">{usersError}</p> : usersCount === null ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-9 w-12" />
+                  <Skeleton className="h-4 w-28" />
+                </div>
+              ) : <>
+                  <div className="text-3xl font-bold">{usersCount}</div>
+                  <p className="text-sm text-muted-foreground">Registered users</p>
+                </>}
             </div>
+
           </CardContent>
         </Card>
       </div>
