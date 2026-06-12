@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { gatewayService } from '@/services/gateway';
 import { useToast } from '@/hooks/use-toast';
-import { Activity, Users, RefreshCw, ArrowRight, Link, Copy } from 'lucide-react';
+import { Users, Link, Copy } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import VpsHealthCard from '@/components/dashboard/VpsHealthCard';
+
 export default function Dashboard() {
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(false);
