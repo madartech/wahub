@@ -534,14 +534,24 @@ export default function Users() {
     toast.success('Refreshed');
   }, [fetchUsersWithStatus]);
 
+  const lastPhones = useMemo(() => getStoredLastPhones(), [users]);
+
   const filteredUsers = users.filter((user) => {
     if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      user.name.toLowerCase().includes(q) ||
-      (user.phoneNumber && user.phoneNumber.toLowerCase().includes(q))
-    );
+    const q = searchQuery.toLowerCase().trim();
+    const qDigits = q.replace(/\D/g, '');
+    if (user.name.toLowerCase().includes(q)) return true;
+    const currentPhone = (user.phoneNumber || '').toLowerCase();
+    if (currentPhone && currentPhone.includes(q)) return true;
+    if (qDigits) {
+      const currentDigits = currentPhone.replace(/\D/g, '');
+      if (currentDigits && currentDigits.includes(qDigits)) return true;
+      const lastDigits = lastPhones[user.id];
+      if (lastDigits && lastDigits.includes(qDigits)) return true;
+    }
+    return false;
   });
+
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
   const safeCurrentPage = Math.min(currentPage, totalPages);
