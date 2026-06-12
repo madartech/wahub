@@ -12,8 +12,8 @@ interface PingSample {
   at: number;
 }
 
-const HISTORY_SIZE = 20;        // last 20 pings drive uptime %
-const POLL_INTERVAL_MS = 15_000; // 15s — light, no auth needed
+const HISTORY_SIZE = 20;             // last 20 pings drive uptime %
+const POLL_INTERVAL_MS = 60 * 60_000; // 60 minutes
 const TIMEOUT_MS = 6_000;
 
 async function ping(): Promise<PingSample> {
@@ -188,7 +188,7 @@ export default function VpsHealthCard() {
             })}
           </div>
           <p className="mt-1 text-[10px] text-muted-foreground">
-            Pinged every {POLL_INTERVAL_MS / 1000}s · CPU / RAM / disk require a backend endpoint
+            Pinged every {Math.round(POLL_INTERVAL_MS / 60_000)} min · CPU / RAM / disk require a backend endpoint
           </p>
         </div>
       </CardContent>
