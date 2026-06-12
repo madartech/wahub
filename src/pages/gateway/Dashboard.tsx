@@ -91,6 +91,9 @@ export default function Dashboard() {
 
           </CardContent>
         </Card>
+
+        <SentMessagesCard />
+
       </div>
     </div>;
 }
