@@ -62,30 +62,10 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
+      <VpsHealthCard />
+
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Health Status Card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div className="space-y-1">
-              <CardTitle className="text-lg font-medium">Gateway Status</CardTitle>
-              <CardDescription>Backend health check</CardDescription>
-            </div>
-            <Activity className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {isOnline === null ? <Badge variant="secondary">Checking...</Badge> : isOnline ? <Badge className="bg-success text-success-foreground">Online</Badge> : <Badge variant="destructive">Offline</Badge>}
-                <span className="text-sm text-muted-foreground">
-                  {isOnline === null ? 'Checking gateway...' : isOnline ? 'Gateway is responding' : 'Gateway is not responding'}
-                </span>
-              </div>
-              <Button variant="ghost" size="sm" onClick={checkHealth} disabled={isChecking}>
-                <RefreshCw className={`h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+
 
         {/* Users Card */}
         <Card>
