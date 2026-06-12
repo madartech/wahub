@@ -578,7 +578,7 @@ export default function Users() {
             </Button>
             <Button size="sm" onClick={() => navigate('/users/new')}>
               <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline ml-2">Add User</span>
+              <span className="ml-2">Add User</span>
             </Button>
           </div>
         </div>
