@@ -9,8 +9,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import VpsHealthCard from '@/components/dashboard/VpsHealthCard';
 
 export default function Dashboard() {
-  const [isOnline, setIsOnline] = useState<boolean | null>(null);
-  const [isChecking, setIsChecking] = useState(false);
   const [usersCount, setUsersCount] = useState<number | null>(null);
   const [usersError, setUsersError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -24,12 +22,6 @@ export default function Dashboard() {
       description: 'Gateway URL copied to clipboard',
     });
   };
-  const checkHealth = async () => {
-    setIsChecking(true);
-    const result = await gatewayService.checkHealth();
-    setIsOnline(result.ok);
-    setIsChecking(false);
-  };
   const fetchUsersCount = async () => {
     const result = await gatewayService.getUsers();
     if (result.ok) {
@@ -40,9 +32,9 @@ export default function Dashboard() {
     }
   };
   useEffect(() => {
-    checkHealth();
     fetchUsersCount();
   }, []);
+
   return <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
