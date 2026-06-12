@@ -335,6 +335,7 @@ function UserRow({ user, index, connectionState, navigate, onDelete, onDisconnec
 }
 
 const DISPLAY_NAMES_KEY = 'gateway_user_display_names';
+const LAST_PHONES_KEY = 'gateway_user_last_phones';
 
 function getStoredDisplayNames(): Record<string, string> {
   try {
@@ -349,6 +350,25 @@ function saveDisplayName(userId: string, name: string) {
   stored[userId] = name;
   localStorage.setItem(DISPLAY_NAMES_KEY, JSON.stringify(stored));
 }
+
+function getStoredLastPhones(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(LAST_PHONES_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function saveLastPhone(userId: string, phone?: string | null) {
+  if (!phone) return;
+  const digits = String(phone).replace(/\D/g, '');
+  if (!digits) return;
+  const stored = getStoredLastPhones();
+  if (stored[userId] === digits) return;
+  stored[userId] = digits;
+  localStorage.setItem(LAST_PHONES_KEY, JSON.stringify(stored));
+}
+
 
 export default function Users() {
   const [users, setUsers] = useState<GatewayUser[]>([]);
@@ -395,11 +415,13 @@ export default function Users() {
       const prevById = new Map(prev.map((u) => [u.id, u] as const));
       return result.users.map((user) => {
         const prevUser = prevById.get(user.id);
+        const phone = prevUser?.phoneNumber ?? (user as GatewayUser).phoneNumber ?? null;
+        saveLastPhone(user.id, phone);
         return {
           ...user,
           name: storedNames[user.id] || user.name,
           sessionStatus: prevUser?.sessionStatus ?? user.sessionStatus ?? 'UNKNOWN',
-          phoneNumber: prevUser?.phoneNumber ?? (user as GatewayUser).phoneNumber ?? null,
+          phoneNumber: phone,
           me: prevUser?.me ?? (user as GatewayUser).me ?? null,
         } as GatewayUser;
       });
@@ -425,6 +447,7 @@ export default function Users() {
               
               const newStatus = statusResult.session?.status || 'UNKNOWN';
               statusCache.set(user.id, newStatus);
+              saveLastPhone(user.id, statusResult.phoneNumber || statusResult.me?.id);
               setUsers((prev) =>
                 prev.map((u) =>
                   u.id === user.id
@@ -446,6 +469,7 @@ export default function Users() {
       );
     })();
   }, []);
+
 
   const handleDelete = async (userId: string, userName: string) => {
     setIsDeleting(true);
@@ -512,14 +536,24 @@ export default function Users() {
     toast.success('Refreshed');
   }, [fetchUsersWithStatus]);
 
+  const lastPhones = useMemo(() => getStoredLastPhones(), [users]);
+
   const filteredUsers = users.filter((user) => {
     if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      user.name.toLowerCase().includes(q) ||
-      (user.phoneNumber && user.phoneNumber.toLowerCase().includes(q))
-    );
+    const q = searchQuery.toLowerCase().trim();
+    const qDigits = q.replace(/\D/g, '');
+    if (user.name.toLowerCase().includes(q)) return true;
+    const currentPhone = (user.phoneNumber || '').toLowerCase();
+    if (currentPhone && currentPhone.includes(q)) return true;
+    if (qDigits) {
+      const currentDigits = currentPhone.replace(/\D/g, '');
+      if (currentDigits && currentDigits.includes(qDigits)) return true;
+      const lastDigits = lastPhones[user.id];
+      if (lastDigits && lastDigits.includes(qDigits)) return true;
+    }
+    return false;
   });
+
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
   const safeCurrentPage = Math.min(currentPage, totalPages);
