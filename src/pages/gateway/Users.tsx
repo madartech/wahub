@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -378,6 +378,7 @@ export default function Users() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [statusSort, setStatusSort] = useState<'none' | 'asc' | 'desc'>('none');
   const PAGE_SIZE = 10;
 
   // Scroll to top when page changes (especially helpful on mobile)
@@ -559,10 +560,31 @@ export default function Users() {
     return false;
   });
 
+  const STATUS_ORDER: Record<UserConnectionState, number> = {
+    connected: 0,
+    scan_qr: 1,
+    provisioning: 2,
+    not_provisioned: 3,
+  };
 
-  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+  const sortedUsers = useMemo(() => {
+    if (statusSort === 'none') return filteredUsers;
+    const dir = statusSort === 'asc' ? 1 : -1;
+    return [...filteredUsers].sort((a, b) => {
+      const av = STATUS_ORDER[getConnectionState(a.sessionStatus)];
+      const bv = STATUS_ORDER[getConnectionState(b.sessionStatus)];
+      return (av - bv) * dir;
+    });
+  }, [filteredUsers, statusSort]);
+
+  const cycleStatusSort = () => {
+    setStatusSort((s) => (s === 'none' ? 'asc' : s === 'asc' ? 'desc' : 'none'));
+    setCurrentPage(1);
+  };
+
+  const totalPages = Math.max(1, Math.ceil(sortedUsers.length / PAGE_SIZE));
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const paginatedUsers = filteredUsers.slice(
+  const paginatedUsers = sortedUsers.slice(
     (safeCurrentPage - 1) * PAGE_SIZE,
     safeCurrentPage * PAGE_SIZE
   );
