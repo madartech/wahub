@@ -719,7 +719,23 @@ export default function Users() {
                         <TableHead className="w-10 py-1.5">#</TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Phone</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>
+                          <button
+                            type="button"
+                            onClick={cycleStatusSort}
+                            className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                            aria-label="Sort by status"
+                          >
+                            Status
+                            {statusSort === 'asc' ? (
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            ) : statusSort === 'desc' ? (
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            ) : (
+                              <ArrowUpDown className="h-3.5 w-3.5 opacity-50" />
+                            )}
+                          </button>
+                        </TableHead>
                         <TableHead>Instance</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
