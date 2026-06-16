@@ -7,6 +7,7 @@ import { LayoutDashboard, Users, LogOut, MessageSquare, Activity } from 'lucide-
 import { InstallButton } from '@/components/InstallButton';
 import SidebarWatchdogWidget from '@/components/layout/SidebarWatchdogWidget';
 import UsersCounterWidget from '@/components/layout/UsersCounterWidget';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface GatewayLayoutProps {
   children: ReactNode;
@@ -42,6 +43,7 @@ export default function GatewayLayout({ children }: GatewayLayoutProps) {
         </div>
         <div className="flex items-center gap-2">
           <UsersCounterWidget />
+          <ThemeToggle />
           <Button
             variant="ghost"
             size="icon"
@@ -101,7 +103,13 @@ export default function GatewayLayout({ children }: GatewayLayoutProps) {
           </div>
         </nav>
 
-        <div className="p-4 border-t border-sidebar-border">
+        <div className="p-4 border-t border-sidebar-border space-y-1">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Theme
+            </span>
+            <ThemeToggle />
+          </div>
           <Button
             variant="ghost"
             className="w-full justify-start text-muted-foreground hover:text-foreground"
