@@ -7,6 +7,7 @@ import { ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import HealthBadge, { StatusBadge, deriveHealth } from './HealthBadge';
 import RowActions from './RowActions';
+import { deriveSessId } from '@/lib/proxy';
 
 type SortKey = 'none' | 'health' | 'instance';
 type SortDir = 'asc' | 'desc';
@@ -189,6 +190,7 @@ export default function OperationsTable({ users, onChanged, onModalChange }: Pro
                           }
                         />
                         <Detail label="Paused" value={<span className="text-xs">{fmtCountdown(u.pausedUntil)}</span>} />
+                        <Detail label="Proxy sessid" value={<span className="font-mono text-[11px]">{deriveSessId(u)}</span>} />
                       </div>
                     </TableCell>
                   </TableRow>
