@@ -6,11 +6,10 @@ import { RefreshCw, Search, Activity } from 'lucide-react';
 import { gatewayService } from '@/services/gateway';
 import { statusCache } from '@/services/statusCache';
 
-import { GatewayUser, HealthLevel, SessionStatus, WatchdogUserConfig } from '@/types/gateway';
+import { GatewayUser, HealthLevel, SessionStatus } from '@/types/gateway';
 import OperationsTable from '@/components/operations/OperationsTable';
 import OperationsCards from '@/components/operations/OperationsCards';
 import { deriveHealth } from '@/components/operations/HealthBadge';
-import WatchdogPanel from '@/components/operations/WatchdogPanel';
 import { useGatewayPolling } from '@/hooks/useGatewayPolling';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
@@ -27,7 +26,6 @@ const FILTERS: { key: Filter; label: string }[] = [
 
 export default function Operations() {
   const [users, setUsers] = useState<GatewayUser[]>([]);
-  const [watchdogUsers, setWatchdogUsers] = useState<Record<string, WatchdogUserConfig>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -123,8 +121,6 @@ export default function Operations() {
         </div>
       </div>
 
-      <WatchdogPanel onUsersConfig={setWatchdogUsers} />
-
       <div className="flex flex-col gap-2 md:flex-row md:items-center">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -156,8 +152,8 @@ export default function Operations() {
       )}
 
       {isMobile
-        ? <OperationsCards users={filtered} watchdogUsers={watchdogUsers} onChanged={fetchAll} onModalChange={setModalOpen} />
-        : <OperationsTable users={filtered} watchdogUsers={watchdogUsers} onChanged={fetchAll} onModalChange={setModalOpen} />}
+        ? <OperationsCards users={filtered} onChanged={fetchAll} onModalChange={setModalOpen} />
+        : <OperationsTable users={filtered} onChanged={fetchAll} onModalChange={setModalOpen} />}
     </div>
   );
 }

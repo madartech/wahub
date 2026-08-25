@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { LayoutDashboard, Users, LogOut, MessageSquare, Activity } from 'lucide-react';
 import { InstallButton } from '@/components/InstallButton';
-import SidebarWatchdogWidget from '@/components/layout/SidebarWatchdogWidget';
 import UsersCounterWidget from '@/components/layout/UsersCounterWidget';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
@@ -97,10 +96,6 @@ export default function GatewayLayout({ children }: GatewayLayoutProps) {
               {item.label}
             </NavLink>
           ))}
-
-          <div className="pt-2">
-            <SidebarWatchdogWidget />
-          </div>
         </nav>
 
         <div className="p-4 border-t border-sidebar-border space-y-1">

@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from 'react';
-import { GatewayUser, WatchdogUserConfig } from '@/types/gateway';
+import { GatewayUser } from '@/types/gateway';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -7,8 +7,6 @@ import { ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import HealthBadge, { StatusBadge, deriveHealth } from './HealthBadge';
 import RowActions from './RowActions';
-import WatchdogControls from './WatchdogControls';
-import WatchdogBadges from './WatchdogBadges';
 
 type SortKey = 'none' | 'health' | 'instance';
 type SortDir = 'asc' | 'desc';
@@ -25,7 +23,6 @@ function instanceRank(id?: string | null) {
 
 interface Props {
   users: GatewayUser[];
-  watchdogUsers?: Record<string, WatchdogUserConfig>;
   onChanged: () => void;
   onModalChange: (open: boolean) => void;
 }
@@ -58,7 +55,7 @@ function fmtCountdown(s?: string | null) {
   return `${Math.floor(m / 60)}h ${m % 60}m`;
 }
 
-export default function OperationsTable({ users, watchdogUsers, onChanged, onModalChange }: Props) {
+export default function OperationsTable({ users, onChanged, onModalChange }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>('none');
@@ -144,7 +141,6 @@ export default function OperationsTable({ users, watchdogUsers, onChanged, onMod
         <TableBody>
           {pageUsers.map((u, i) => {
             const isOpen = expanded.has(u.id);
-            const cfg = watchdogUsers?.[u.id];
             return (
               <Fragment key={u.id}>
                 <TableRow
@@ -193,18 +189,6 @@ export default function OperationsTable({ users, watchdogUsers, onChanged, onMod
                           }
                         />
                         <Detail label="Paused" value={<span className="text-xs">{fmtCountdown(u.pausedUntil)}</span>} />
-                        <Detail
-                          label="Watchdog flags"
-                          value={<WatchdogBadges user={u} cfg={cfg} />}
-                        />
-                        <Detail
-                          label="Watchdog controls"
-                          value={
-                            <div onClick={(e) => e.stopPropagation()}>
-                              <WatchdogControls user={u} cfg={cfg} onChanged={onChanged} compact />
-                            </div>
-                          }
-                        />
                       </div>
                     </TableCell>
                   </TableRow>
