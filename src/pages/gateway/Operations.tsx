@@ -122,6 +122,8 @@ export default function Operations() {
         </div>
       </div>
 
+      <ProxyPanel onChanged={fetchAll} />
+
       <div className="flex flex-col gap-2 md:flex-row md:items-center">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
