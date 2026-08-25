@@ -9,6 +9,7 @@ import { statusCache } from '@/services/statusCache';
 import { GatewayUser, HealthLevel, SessionStatus } from '@/types/gateway';
 import OperationsTable from '@/components/operations/OperationsTable';
 import OperationsCards from '@/components/operations/OperationsCards';
+import ProxyPanel from '@/components/operations/ProxyPanel';
 import { deriveHealth } from '@/components/operations/HealthBadge';
 import { useGatewayPolling } from '@/hooks/useGatewayPolling';
 import { useIsMobile } from '@/hooks/use-mobile';
