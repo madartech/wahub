@@ -97,10 +97,6 @@ export default function GatewayLayout({ children }: GatewayLayoutProps) {
               {item.label}
             </NavLink>
           ))}
-
-          <div className="pt-2">
-            <SidebarWatchdogWidget />
-          </div>
         </nav>
 
         <div className="p-4 border-t border-sidebar-border space-y-1">
