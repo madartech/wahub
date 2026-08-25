@@ -138,11 +138,13 @@ export default function ProxyPanel({ onChanged }: Props) {
                 className="text-xs"
               />
             </Field>
-            <Field label="Sticky minutes (max 90)">
+            <Field label="Sticky minutes (max 1440)">
               <Input
                 type="number"
+                min={1}
+                max={1440}
                 value={cfg.sessTime}
-                onChange={(e) => set('sessTime', Math.min(90, Math.max(1, Number(e.target.value) || 90)))}
+                onChange={(e) => set('sessTime', Math.min(1440, Math.max(1, Number(e.target.value) || 1440)))}
                 className="text-xs"
               />
             </Field>

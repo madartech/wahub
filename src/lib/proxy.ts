@@ -10,7 +10,7 @@ export interface ProxyDefaults {
   usernameBase: string;
   /** Two-letter country code, e.g. "OM". Empty = no country pin. */
   country: string;
-  /** Sticky session duration in minutes (Thordata max 90). */
+  /** Sticky session duration in minutes (up to 24 hours). */
   sessTime: number;
   /** Optional extra targeting segments, e.g. "state-Muscat-city-Muscat" */
   extraSegments?: string;
@@ -22,7 +22,7 @@ export const DEFAULT_PROXY: ProxyDefaults = {
   port: 9999,
   usernameBase: 'td-customer-kXVywm6vs94a',
   country: 'OM',
-  sessTime: 90,
+  sessTime: 1440,
   extraSegments: '',
 };
 
