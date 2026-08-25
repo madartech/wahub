@@ -6,7 +6,7 @@ import {
 import { Button } from '@/components/ui/button';
 import {
   MoreHorizontal, HeartPulse, QrCode, Power, RotateCw, Square, Play,
-  Trash2, RefreshCcw, PauseCircle, PlayCircle, Send, FileText, Smartphone,
+  Trash2, RefreshCcw, PauseCircle, PlayCircle, Send, FileText, Smartphone, Globe,
 } from 'lucide-react';
 import { GatewayUser, OperationResponse } from '@/types/gateway';
 import { gatewayService } from '@/services/gateway';
@@ -17,6 +17,7 @@ import TestSendDialog from './dialogs/TestSendDialog';
 import LogsDialog from './dialogs/LogsDialog';
 import QrDialog from './dialogs/QrDialog';
 import PairingCodeDialog from './dialogs/PairingCodeDialog';
+import ProxyDialog from './dialogs/ProxyDialog';
 
 interface Props {
   user: GatewayUser;
@@ -32,10 +33,11 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
   const [logsOpen, setLogsOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [pairOpen, setPairOpen] = useState(false);
+  const [proxyOpen, setProxyOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const failuresRef = useRef(0);
 
-  const anyModal = confirmRemove || confirmReset || pauseOpen || testOpen || logsOpen || qrOpen || pairOpen;
+  const anyModal = confirmRemove || confirmReset || pauseOpen || testOpen || logsOpen || qrOpen || pairOpen || proxyOpen;
   useEffect(() => { onModalChange(anyModal); }, [anyModal, onModalChange]);
 
   const run = async (
@@ -115,6 +117,7 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
 
           <DropdownMenuSeparator />
           <DropdownMenuLabel>Container</DropdownMenuLabel>
+          <DropdownMenuItem onClick={() => setProxyOpen(true)}><Globe className="mr-2 h-4 w-4" /> Proxy / egress IP…</DropdownMenuItem>
           <DropdownMenuItem onClick={handleProvision}><Power className="mr-2 h-4 w-4" /> Provision / Create</DropdownMenuItem>
           <DropdownMenuItem onClick={() => run('Restart', () => gatewayService.restartInstance(user.id), { delayedRefresh: true })}>
             <RotateCw className="mr-2 h-4 w-4" /> Restart
@@ -191,6 +194,7 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
       <LogsDialog open={logsOpen} onOpenChange={setLogsOpen} userId={user.id} userName={user.name} />
       <QrDialog open={qrOpen} onOpenChange={setQrOpen} userId={user.id} userName={user.name} onConnected={onChanged} />
       <PairingCodeDialog open={pairOpen} onOpenChange={setPairOpen} userId={user.id} userName={user.name} onConnected={onChanged} />
+      <ProxyDialog open={proxyOpen} onOpenChange={setProxyOpen} user={user} onChanged={onChanged} />
     </>
   );
 }

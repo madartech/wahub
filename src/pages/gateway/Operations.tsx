@@ -9,6 +9,7 @@ import { statusCache } from '@/services/statusCache';
 import { GatewayUser, HealthLevel, SessionStatus } from '@/types/gateway';
 import OperationsTable from '@/components/operations/OperationsTable';
 import OperationsCards from '@/components/operations/OperationsCards';
+import ProxyPanel from '@/components/operations/ProxyPanel';
 import { deriveHealth } from '@/components/operations/HealthBadge';
 import { useGatewayPolling } from '@/hooks/useGatewayPolling';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -120,6 +121,8 @@ export default function Operations() {
           </Button>
         </div>
       </div>
+
+      <ProxyPanel onChanged={fetchAll} />
 
       <div className="flex flex-col gap-2 md:flex-row md:items-center">
         <div className="relative flex-1 max-w-md">
