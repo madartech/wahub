@@ -46,9 +46,6 @@ export default function OperationsCards({ users, onChanged, onModalChange }: Pro
               <div className="font-mono truncate">{u.containerName || (u.instanceId ? `waha_${u.instanceId}` : '—')}</div>
             </div>
           </div>
-          <div className="border-t pt-2">
-            <WatchdogControls user={u} cfg={watchdogUsers?.[u.id]} onChanged={onChanged} compact />
-          </div>
           <div className="flex justify-end">
             <RowActions user={u} onChanged={onChanged} onModalChange={onModalChange} />
           </div>
