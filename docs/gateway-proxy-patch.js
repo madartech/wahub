@@ -106,7 +106,7 @@ function buildUsername(cfg, sessId) {
   if (cfg.country) parts.push('country-' + String(cfg.country).toUpperCase());
   if (cfg.extraSegments) parts.push(String(cfg.extraSegments).replace(/^-+|-+$/g, ''));
   parts.push('sessid-' + sessId);
-  parts.push('sesstime-' + (cfg.sessTime || 90));
+  parts.push('sesstime-' + (cfg.sessTime || 1440));
   return parts.join('-');
 }
 
@@ -228,7 +228,7 @@ function attachProxyRoutes(app, opts) {
       port: Number(b.port) || 9999,
       usernameBase: String(b.usernameBase || ''),
       country: String(b.country || ''),
-      sessTime: Math.min(90, Math.max(1, Number(b.sessTime) || 90)),
+      sessTime: Math.min(1440, Math.max(1, Number(b.sessTime) || 1440)),
       extraSegments: String(b.extraSegments || ''),
     };
     writeStore(dataDir, store);
@@ -268,7 +268,7 @@ function attachProxyRoutes(app, opts) {
       port: b.port ? Number(b.port) : undefined,
       usernameBase: b.usernameBase ? String(b.usernameBase) : undefined,
       country: b.country !== undefined ? String(b.country) : undefined,
-      sessTime: b.sessTime ? Math.min(90, Math.max(1, Number(b.sessTime))) : undefined,
+      sessTime: b.sessTime ? Math.min(1440, Math.max(1, Number(b.sessTime))) : undefined,
       extraSegments: b.extraSegments !== undefined ? String(b.extraSegments) : undefined,
       sessId: b.sessId ? String(b.sessId).replace(/[^a-zA-Z0-9]/g, '') : undefined,
     };
