@@ -150,24 +150,46 @@ function getProxyEnvForUser(user, dataDir) {
 
 /* ------------------------------- egress IP ------------------------------ */
 
+// Native HTTP request through the proxy (no `curl` binary in the container).
 function curlThroughProxy(cfg, cb) {
   const password = process.env.THORDATA_PROXY_PASSWORD || '';
   if (!password) return cb(new Error('THORDATA_PROXY_PASSWORD not set'));
-  const proxy = `http://${cfg.username}:${password}@${cfg.host}:${cfg.port}`;
-  execFile(
-    'curl',
-    ['-s', '--max-time', '20', '-x', proxy, 'https://ipinfo.thordata.com'],
-    { timeout: 25000 },
-    (err, stdout) => {
-      if (err) return cb(err);
-      try {
-        cb(null, JSON.parse(stdout));
-      } catch {
-        cb(null, { raw: String(stdout).slice(0, 500) });
-      }
+  const auth = Buffer.from(`${cfg.username}:${password}`).toString('base64');
+  const req = http.request(
+    {
+      host: cfg.host,
+      port: cfg.port,
+      method: 'GET',
+      path: 'http://ip-api.com/json',
+      headers: {
+        Host: 'ip-api.com',
+        'Proxy-Authorization': 'Basic ' + auth,
+        'User-Agent': 'madar-gateway',
+      },
+      timeout: 25000,
+    },
+    (resp) => {
+      let body = '';
+      resp.on('data', (d) => {
+        body += d;
+      });
+      resp.on('end', () => {
+        if (resp.statusCode !== 200) {
+          return cb(new Error(`proxy responded ${resp.statusCode}: ${body.slice(0, 200)}`));
+        }
+        try {
+          cb(null, JSON.parse(body));
+        } catch {
+          cb(null, { raw: String(body).slice(0, 500) });
+        }
+      });
     },
   );
+  req.on('timeout', () => req.destroy(new Error('proxy request timed out')));
+  req.on('error', (e) => cb(e));
+  req.end();
 }
+
 
 /* -------------------------------- routes -------------------------------- */
 
