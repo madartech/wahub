@@ -394,4 +394,13 @@ export const gatewayService = {
     return { ...op, lines: d?.lines || (d?.raw ? String(d.raw).split('\n') : []), raw: d?.raw || '' };
   },
 
+  // ===== Proxy config (graceful 404 until backend patch is deployed) =====
+  getProxyDefaults()                          { return this._adminOp('GET', '/admin/proxy/defaults'); },
+  setProxyDefaults(cfg: unknown)              { return this._adminOp('POST', '/admin/proxy/defaults', cfg); },
+  getUserProxy(userId: string)                { return this._adminOp('GET', `/admin/users/${userId}/proxy`); },
+  setUserProxy(userId: string, cfg: unknown)  { return this._adminOp('POST', `/admin/users/${userId}/proxy`, cfg); },
+  clearUserProxy(userId: string)              { return this._adminOp('POST', `/admin/users/${userId}/proxy`, { clear: true }); },
+  getEgressIp(userId: string)                 { return this._adminOp('GET', `/admin/users/${userId}/egress-ip`); },
+  bulkAssignProxy()                           { return this._adminOp('POST', '/admin/proxy/bulk-assign'); },
+
 };

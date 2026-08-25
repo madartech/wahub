@@ -148,3 +148,32 @@ export interface LogsResponse extends OperationResponse {
   lines?: string[];
   raw?: string;
 }
+
+// ===== Proxy (per-instance residential egress) =====
+export interface ProxyOverride {
+  enabled?: boolean;
+  host?: string;
+  port?: number;
+  usernameBase?: string;
+  country?: string;
+  sessTime?: number;
+  extraSegments?: string;
+  sessId?: string;
+}
+
+export interface EffectiveProxy {
+  host: string;
+  port: number;
+  sessId: string;
+  username: string;
+}
+
+export interface EgressInfo {
+  ip?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  org?: string;
+  asn?: string;
+  raw?: string;
+}
