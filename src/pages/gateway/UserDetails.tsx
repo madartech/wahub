@@ -691,34 +691,28 @@ export default function UserDetails() {
             {/* QR Modal */}
             {showQrModal && (
               <div className="flex flex-col items-center gap-4 p-4 border rounded-lg bg-muted/30 max-h-[80vh] overflow-y-auto">
-                {qrDataUrl ? (
+                {qr.dataUrl ? (
                   <img 
-                    src={qrDataUrl} 
+                    src={qr.dataUrl} 
                     alt="WhatsApp QR Code" 
                     className="w-full max-w-[256px] aspect-square rounded-lg border bg-white"
                   />
-                ) : isLoadingQR ? (
+                ) : !qr.expired ? (
                   <div className="flex flex-col items-center justify-center gap-3 h-48 w-48 sm:h-64 sm:w-64">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">{qrWaitMsg || 'Loading…'}</p>
+                    <p className="text-sm text-muted-foreground">{qr.waitingMessage}</p>
+                    <p className="text-xs text-muted-foreground">{Math.round(qr.progress)}%</p>
                   </div>
-                ) : qrError ? (
+                ) : (
                   <div className="text-center py-8">
                     <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
-                    <p className="text-sm text-destructive">{qrError}</p>
-                  </div>
-                ) : null}
-
-                {lastQrResult && !qrDataUrl && (
-                  <div className="w-full text-center text-xs text-muted-foreground">
-                    <p>
-                      Last QR: ok={String(lastQrResult.ok)}, status={lastQrResult.status || 'none'}, error={lastQrResult.error || 'none'}, hasDataUrl={String(lastQrResult.hasDataUrl)}
+                    <p className="text-sm text-destructive">
+                      {qr.error || 'QR was not ready after 120 seconds. Try Refresh QR.'}
                     </p>
-                    {lastQrResult.hasDataUrl && (
-                      <p className="mt-1 font-medium text-destructive">QR image received but was not rendered.</p>
-                    )}
                   </div>
                 )}
+
+                {!qr.dataUrl && <QrDebugSummary result={qr.lastResult} />}
 
                 <p className="text-sm text-center text-muted-foreground px-2">
                   Scan this QR in WhatsApp → Linked devices → Link a device
@@ -728,12 +722,13 @@ export default function UserDetails() {
                   <Button 
                     variant="outline" 
                     onClick={handleRefreshQR}
-                    disabled={isLoadingQR}
+                    disabled={qr.refreshing}
                     className="h-11 min-h-[44px]"
                   >
-                    <RefreshCw className={`mr-2 h-4 w-4 ${isLoadingQR ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`mr-2 h-4 w-4 ${qr.refreshing ? 'animate-spin' : ''}`} />
                     Refresh QR
                   </Button>
+
                   <Button 
                     variant="ghost" 
                     onClick={handleCloseQrModal}
