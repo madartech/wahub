@@ -82,6 +82,8 @@ export interface UserStatusResponse {
   } | null;
   phoneNumber?: string | null;
   containerStatus?: string;
+  warning?: string;
+  detail?: string;
   error?: string;
 }
 

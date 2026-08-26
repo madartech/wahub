@@ -251,6 +251,8 @@ export const gatewayService = {
         },
         me: data.me || null,
         phoneNumber: data.me?.id || data.phoneNumber || null,
+        warning: typeof data.warning === 'string' ? data.warning : undefined,
+        detail: typeof data.detail === 'string' ? data.detail : undefined,
       };
     } catch (error) {
       clearTimeout(timeoutId);
