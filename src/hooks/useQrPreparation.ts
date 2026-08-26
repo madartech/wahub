@@ -155,6 +155,17 @@ export function useQrPreparation({
         return;
       }
 
+      // Session already authenticated: stop the loop and notify the consumer.
+      if (result.status === 'WORKING' || result.status === 'READY') {
+        stop();
+        setConnected(true);
+        setError(null);
+        setProgress(100);
+        onConnectedRef.current?.();
+        return;
+      }
+
+
 
       // Every non-image response is transient. Keep polling while this
       // generation remains active; the separate 12s timer re-provisions it.
