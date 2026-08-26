@@ -134,32 +134,38 @@ export const gatewayService = {
       },
     });
     
-    const data = await res.json();
-    
-    if (!res.ok) {
-      // Return error response instead of throwing
+    const data = await res.json().catch(() => ({} as any));
+
+    // Normalize both old (GOWS) and new (WEBJS) response shapes
+    const status = (data.status || data.session?.status) as SessionStatus | undefined;
+    const dataUrl: string | undefined =
+      data.dataUrl ||
+      data.qr?.dataUrl ||
+      (data.data ? `data:${data.mimetype || 'image/png'};base64,${data.data}` : undefined) ||
+      (data.base64 ? `data:${data.mimetype || 'image/png'};base64,${data.base64}` : undefined) ||
+      (typeof data.qr === 'string'
+        ? (data.qr.startsWith('data:') ? data.qr : `data:image/png;base64,${data.qr}`)
+        : undefined);
+
+    if (!res.ok || data.ok === false) {
       return {
         ok: false,
         error: data.error || data.message || `HTTP ${res.status}`,
-        status: data.status as SessionStatus,
+        status,
       };
     }
-    
-    // Check if already connected
-    if (data.alreadyConnected) {
-      return {
-        ok: true,
-        alreadyConnected: true,
-        status: data.status as SessionStatus,
-      };
+
+    if (data.alreadyConnected || status === 'WORKING') {
+      return { ok: true, alreadyConnected: true, status };
     }
-    
-    return {
-      ok: true,
-      dataUrl: data.dataUrl,
-      status: data.status as SessionStatus,
-    };
+
+    if (!dataUrl) {
+      return { ok: false, error: data.error || data.message || 'QR not available yet', status };
+    }
+
+    return { ok: true, dataUrl, status };
   },
+
 
   // Get user status - returns full session info (with 5s timeout)
   async getUserStatus(userId: string): Promise<UserStatusResponse> {
