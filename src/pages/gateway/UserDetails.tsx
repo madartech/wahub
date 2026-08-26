@@ -814,8 +814,9 @@ export default function UserDetails() {
             {showQrModal && (
               <div className="flex flex-col items-center gap-4 p-4 border rounded-lg bg-muted/30 max-h-[80vh] overflow-y-auto">
                 {isLoadingQR ? (
-                  <div className="flex items-center justify-center h-48 w-48 sm:h-64 sm:w-64">
+                  <div className="flex flex-col items-center justify-center gap-3 h-48 w-48 sm:h-64 sm:w-64">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">{qrWaitMsg || 'Loading…'}</p>
                   </div>
                 ) : qrError ? (
                   <div className="text-center py-8">
