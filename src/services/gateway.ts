@@ -160,10 +160,10 @@ export const gatewayService = {
 
 
 
-  // Get QR code as base64 (30s timeout)
+  // WEBJS/Chromium can take up to two minutes to produce its first QR.
   async getQRCode(userId: string): Promise<QRResponse> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
 
     let res: Response;
     try {

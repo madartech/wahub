@@ -19,7 +19,7 @@ import { statusCache } from '@/services/statusCache';
 
 const POLL_INTERVAL = 3000; // 3 seconds
 const QR_RETRY_INTERVAL = 3000; // retry /qr-base64 every 3s
-const QR_RETRY_MAX_MS = 90000; // for up to 90s
+const QR_RETRY_MAX_MS = 120000; // allow slow WEBJS/Chromium startup
 
 
 const DISPLAY_NAMES_KEY = 'gateway_user_display_names';
@@ -263,7 +263,7 @@ export default function UserDetails() {
     qrPollingRef.current = setTimeout(() => pollQrStatus(userId), POLL_INTERVAL);
   }, [fetchStatus, toast]);
 
-  // Fetch the QR, retrying every 3s for up to 90s while it isn't available yet.
+  // Fetch the QR, retrying every 3s for up to 120s while WEBJS starts.
   const loadQrWithRetry = async (userId: string, deadline: number, token: number) => {
     try {
       const qrResult = await gatewayService.getQRCode(userId);
@@ -314,7 +314,7 @@ export default function UserDetails() {
 
       setIsLoadingQR(false);
       setQrWaitMsg(null);
-      setQrError(qrResult.error || 'QR not available. Try Refresh QR.');
+      setQrError(qrResult.error || 'QR was not ready after 120 seconds. Try Refresh QR.');
     } catch (err) {
       if (token !== qrRetryTokenRef.current) return;
       const isNetwork = err instanceof TypeError || /failed to fetch/i.test(String(err));
