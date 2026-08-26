@@ -157,24 +157,27 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
           {isRunning && (
             <>
               <div className="flex items-center gap-2">
-                {!qrDataUrl && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+                {!qr.dataUrl && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
                 <span className="font-medium">
                   {phase === 'resetting' && 'Resetting...'}
-                  {phase === 'polling' && 'Waiting for QR ready...'}
-                  {phase === 'scan_qr' && 'Scan QR Code Now'}
+                  {phase === 'qr' && (qr.dataUrl ? 'Scan QR Code Now' : qr.waitingMessage)}
                 </span>
               </div>
 
-              <Progress value={progress} className="h-2" />
-              <p className="text-xs text-muted-foreground">
-                Polling for up to 120 seconds... ({Math.round(progress)}%)
-              </p>
+              {!qr.dataUrl && !qr.expired && (
+                <>
+                  <Progress value={qr.progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground">
+                    Retrying automatically for up to 120 seconds… ({Math.round(qr.progress)}%)
+                  </p>
+                </>
+              )}
 
-              {phase === 'scan_qr' && qrDataUrl && (
+              {qr.dataUrl && (
                 <div className="flex flex-col items-center gap-4 p-4 border rounded-lg bg-white">
-                  <img 
-                    src={qrDataUrl} 
-                    alt="WhatsApp QR Code" 
+                  <img
+                    src={qr.dataUrl}
+                    alt="WhatsApp QR Code"
                     className="w-full max-w-[256px] aspect-square rounded-lg border"
                   />
                   <p className="text-sm text-center text-muted-foreground">
@@ -183,28 +186,32 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
                 </div>
               )}
 
-              {lastQrResult && !qrDataUrl && (
-                <div className="text-center text-xs text-muted-foreground">
-                  <p>
-                    Last QR: ok={String(lastQrResult.ok)}, status={lastQrResult.status || 'none'}, error={lastQrResult.error || 'none'}, hasDataUrl={String(lastQrResult.hasDataUrl)}
-                  </p>
-                  {lastQrResult.hasDataUrl && (
-                    <p className="mt-1 font-medium text-destructive">QR image received but was not rendered.</p>
-                  )}
-                </div>
+              {phase === 'qr' && qr.expired && !qr.refreshing && (
+                <p className="text-sm text-destructive">{qr.error || 'QR was not ready in time.'}</p>
               )}
 
-              <Button
-                variant="outline"
-                onClick={handleClose}
-                className="w-full"
-              >
-                Cancel
-              </Button>
+              {!qr.dataUrl && <QrDebugSummary result={qr.lastResult} />}
+
+              <div className="flex gap-2">
+                {phase === 'qr' && (
+                  <Button
+                    variant="outline"
+                    onClick={() => void qr.refresh()}
+                    disabled={qr.refreshing}
+                    className="flex-1"
+                  >
+                    <RefreshCw className={`mr-2 h-4 w-4 ${qr.refreshing ? 'animate-spin' : ''}`} />
+                    Refresh QR
+                  </Button>
+                )}
+                <Button variant="outline" onClick={handleClose} className="flex-1">
+                  Cancel
+                </Button>
+              </div>
             </>
           )}
 
-          {phase === 'connected' && (
+          {phase === 'qr' && qr.connected && (
             <>
               <div className="flex items-center gap-2 text-success">
                 <CheckCircle className="h-5 w-5" />
@@ -218,6 +225,7 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
               </Button>
             </>
           )}
+
 
           {phase === 'failed' && (
             <>
