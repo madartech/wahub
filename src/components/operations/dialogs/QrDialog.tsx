@@ -2,9 +2,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, QrCode, CheckCircle, AlertTriangle } from 'lucide-react';
+import { RefreshCw, QrCode, CheckCircle } from 'lucide-react';
 import { useQrPreparation } from '@/hooks/useQrPreparation';
-import QrDebugSummary from './QrDebugSummary';
 
 interface Props {
   open: boolean;
@@ -43,28 +42,14 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
             </div>
           )}
 
-          {!qr.dataUrl && !qr.connected && (qr.waiting || qr.refreshing) && (
+          {!qr.dataUrl && !qr.connected && (
             <div className="flex flex-col items-center gap-2">
               <RefreshCw className="h-5 w-5 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">{qr.waitingMessage}</p>
-            </div>
-          )}
-
-          {!qr.dataUrl && !qr.connected && qr.expired && !qr.refreshing && (
-            <div className="flex flex-col items-center gap-2 text-center">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              <p className="text-sm text-destructive">{qr.error || 'QR not available'}</p>
-            </div>
-          )}
-
-          {!qr.dataUrl && (
-            <>
-              {qr.lastResult && <p className="text-xs text-muted-foreground">Attempt {qr.lastResult.retryCount}</p>}
-              {qr.slow && !qr.connected && (
-                <p className="text-sm text-muted-foreground text-center">{qr.slowMessage}</p>
+              <p className="text-sm text-muted-foreground text-center">{qr.waitingMessage}</p>
+              {qr.attempt > 0 && (
+                <p className="text-xs text-muted-foreground">Attempt {qr.attempt}</p>
               )}
-              <QrDebugSummary result={qr.lastResult} />
-            </>
+            </div>
           )}
         </div>
         <DialogFooter>
