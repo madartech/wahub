@@ -1,7 +1,6 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { GatewayAuthProvider, useGatewayAuth } from "@/contexts/GatewayAuthContext";
 
@@ -13,8 +12,6 @@ import UserDetails from "@/pages/gateway/UserDetails";
 import Operations from "@/pages/gateway/Operations";
 import GatewayLayout from "@/components/layout/GatewayLayout";
 import NotFound from "@/pages/NotFound";
-
-const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isLoggedIn } = useGatewayAuth();
@@ -98,17 +95,15 @@ function AppRoutes() {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <BrowserRouter>
-        <GatewayAuthProvider>
-          <Toaster />
-          <Sonner />
-          <AppRoutes />
-        </GatewayAuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <TooltipProvider>
+    <BrowserRouter>
+      <GatewayAuthProvider>
+        <Toaster />
+        <Sonner />
+        <AppRoutes />
+      </GatewayAuthProvider>
+    </BrowserRouter>
+  </TooltipProvider>
 );
 
 export default App;
