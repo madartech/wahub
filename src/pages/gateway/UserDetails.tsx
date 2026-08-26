@@ -122,6 +122,8 @@ export default function UserDetails() {
     }
     return 'UNKNOWN' as SessionStatus;
   }, []);
+  fetchStatusRef.current = fetchStatus;
+
 
   // Fetch user data and status
   useEffect(() => {
