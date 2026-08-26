@@ -194,7 +194,11 @@ export default function UserDetails() {
   const handleProvision = async () => {
     if (!id) return;
     setError(null);
-    // Opening the panel starts the shared auto-provision and QR polling loop.
+    const r = await gatewayService.provisionUser(id);
+    if (!r.ok) {
+      setError(r.error || 'Provision failed');
+      return;
+    }
     setShowQrModal(true);
     qrFlowActiveRef.current = true;
   };
