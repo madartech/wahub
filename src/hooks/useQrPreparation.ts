@@ -189,8 +189,10 @@ export function useQrPreparation({
     setLastResult(null);
     setProgress(0);
 
+    let provisionInFlight = false;
     const provision = async () => {
-      if (token !== tokenRef.current) return;
+      if (token !== tokenRef.current || provisionInFlight) return;
+      provisionInFlight = true;
       try {
         await gatewayService.provisionUser(userId);
       } catch (e) {
@@ -198,6 +200,7 @@ export function useQrPreparation({
         // provision attempt continue while the panel remains open.
         console.warn('[QR_AUTO_PROVISION_FAILED]', { userId, error: e });
       } finally {
+        provisionInFlight = false;
         if (showRefreshState && token === tokenRef.current) setRefreshing(false);
       }
     };
