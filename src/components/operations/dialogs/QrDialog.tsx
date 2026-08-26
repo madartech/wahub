@@ -77,10 +77,13 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
       setStatus(r.status);
     }
     const retryable = isRetryableQRResponse(r);
-    if (!r.alreadyConnected && (retryable || !r.ok) && Date.now() - startedAtRef.current < MAX_POLL_MS) {
+    if (!hasDataUrl && !r.alreadyConnected && Date.now() - startedAtRef.current < MAX_POLL_MS) {
       setQr(null);
       qrRetryRef.current = setTimeout(() => void fetchQrRef.current(), POLL_MS);
       return;
+    }
+    if (retryable && !r.error) {
+      r.error = 'QR was not ready after 120 seconds.';
     }
     setQr(r);
     setLoading(false);

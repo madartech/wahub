@@ -209,8 +209,12 @@ export const gatewayService = {
 
     // Normalize both old (GOWS) and new (WEBJS) response shapes
     const status = (data.status || data.session?.status) as SessionStatus | undefined;
-    const detail = typeof data.detail === 'string' ? data.detail : undefined;
-    const body = typeof data.body === 'string' ? data.body : undefined;
+    const detail = typeof data.detail === 'string'
+      ? data.detail
+      : data.detail ? JSON.stringify(data.detail) : undefined;
+    const body = typeof data.body === 'string'
+      ? data.body
+      : data.body ? JSON.stringify(data.body) : undefined;
     const dataUrl: string | undefined =
       data.dataUrl ||
       data.qr?.dataUrl ||

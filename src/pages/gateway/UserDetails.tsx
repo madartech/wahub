@@ -310,7 +310,7 @@ export default function UserDetails() {
       }
 
       const retryable = isRetryableQRResponse(qrResult);
-      if ((retryable || !qrResult.ok) && Date.now() < deadline) {
+      if (!hasDataUrl && !qrResult.alreadyConnected && Date.now() < deadline) {
         setQrWaitMsg('Waiting for QR…');
         qrRetryRef.current = setTimeout(
           () => loadQrWithRetry(userId, deadline, token),
@@ -319,9 +319,13 @@ export default function UserDetails() {
         return;
       }
 
+      if (retryable) {
+        setQrError('QR was not ready after 120 seconds. Try Refresh QR.');
+      }
+
       setIsLoadingQR(false);
       setQrWaitMsg(null);
-      setQrError(qrResult.error || 'QR was not ready after 120 seconds. Try Refresh QR.');
+      setQrError(current => current || qrResult.error || 'QR was not ready after 120 seconds. Try Refresh QR.');
     } catch (err) {
       if (token !== qrRetryTokenRef.current) return;
       const isNetwork = err instanceof TypeError || /failed to fetch/i.test(String(err));

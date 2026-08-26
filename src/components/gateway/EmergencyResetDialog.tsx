@@ -102,6 +102,21 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
       const status = result.session?.status || 'UNKNOWN';
       addLog(`Status: ${status}`);
 
+      if (status === 'WORKING' || status === 'READY') {
+        cleanup();
+        setPhase('connected');
+        setQrDataUrl(null);
+        addLog('✅ WhatsApp connected!');
+        onSuccess?.();
+        return;
+      }
+
+      if (validQrLoadedRef.current) {
+        setPhase('scan_qr');
+        pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
+        return;
+      }
+
       // Ask the QR endpoint directly on every pass. Its dataUrl is the source
       // of truth and must not be blocked by a stale/UNKNOWN status response.
       if (status !== 'WORKING' && status !== 'READY') {
@@ -125,23 +140,6 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
           return;
         }
         addLog(`QR not ready: ${qrResult.error || 'waiting'}`);
-      }
-
-      if (status === 'WORKING' || status === 'READY') {
-        cleanup();
-        setPhase('connected');
-        setQrDataUrl(null);
-        addLog('✅ WhatsApp connected!');
-        onSuccess?.();
-        return;
-      }
-
-      if (status === 'FAILED') {
-        cleanup();
-        setPhase('failed');
-        setErrorMessage('Session failed');
-        addLog('❌ Session failed');
-        return;
       }
 
       pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
