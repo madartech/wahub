@@ -88,10 +88,11 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
 
   const handleProvision = async () => {
     setBusy(true);
+    // Open the QR modal first so its shared polling window starts immediately.
+    setQrOpen(true);
     try {
       await gatewayService.provisionUser(user.id);
       toast({ title: 'Provisioning started', description: user.name });
-      setQrOpen(true);
       onChanged();
       setTimeout(() => onChanged(), 5000);
     } catch (e) {
@@ -99,6 +100,7 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
     }
     setBusy(false);
   };
+
 
   return (
     <>
