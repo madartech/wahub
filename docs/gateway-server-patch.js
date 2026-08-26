@@ -55,7 +55,7 @@ async function dockerExists(container) {
   }
 }
 
-function attachOperationRoutes({ app, requireAdmin, findUserById, wahaContainerName, provisionUser, saveUser, wahaSend }) {
+function attachOperationRoutes({ app, requireAdmin, findUserById, wahaContainerName, provisionUser, startQrPreparation, invalidateQr, saveUser, wahaSend }) {
 
   // ---- helper to load user + container safely ----
   async function loadCtx(req) {
@@ -131,9 +131,13 @@ function attachOperationRoutes({ app, requireAdmin, findUserById, wahaContainerN
       }
       try { await fs.rm(resolved, { recursive: true, force: true }); } catch (_) {}
 
-      // Step 3: re-provision
+      // Step 3: invalidate any old QR and start the non-blocking preparation
       let provision = null;
-      if (typeof provisionUser === 'function') {
+      if (typeof invalidateQr === 'function') invalidateQr(String(user.id));
+      if (typeof startQrPreparation === 'function') {
+        startQrPreparation(user);
+        provision = { ok: true, status: 'STARTING', qrPreparing: true };
+      } else if (typeof provisionUser === 'function') {
         try { provision = await provisionUser(user); } catch (e) {
           return res.status(500).json({ ok: false, error: 'reprovision_failed', detail: String(e) });
         }
@@ -208,7 +212,9 @@ module.exports = { attachOperationRoutes };
  *   requireAdmin,
  *   findUserById,
  *   wahaContainerName,
- *   provisionUser,        // existing reprovision logic
+ *   startQrPreparation: qrPreparation.start,
+ *   invalidateQr: qrPreparation.invalidate,
+ *   provisionUser,        // legacy fallback only
  *   saveUser,             // persists user record (for pause)
  *   wahaSend,             // (user, {to,text}) => Promise<wahaResult>
  * });

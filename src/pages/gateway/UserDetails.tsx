@@ -17,7 +17,6 @@ import PairingCodeDialog from '@/components/operations/dialogs/PairingCodeDialog
 import { statusCache } from '@/services/statusCache';
 
 
-const POLL_INTERVAL = 3000; // 3 seconds
 const QR_RETRY_INTERVAL = 3000; // retry /qr-base64 every 3s
 const QR_RETRY_MAX_MS = 120000; // allow slow WEBJS/Chromium startup
 
@@ -67,7 +66,6 @@ export default function UserDetails() {
   const [isLoadingQR, setIsLoadingQR] = useState(false);
   const [qrError, setQrError] = useState<string | null>(null);
   const [showQrModal, setShowQrModal] = useState(false);
-  const qrPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const qrRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const qrRetryTokenRef = useRef(0);
   const qrFlowActiveRef = useRef(false);
@@ -95,7 +93,6 @@ export default function UserDetails() {
   // Cleanup polling on unmount
   useEffect(() => {
     return () => {
-      if (qrPollingRef.current) clearTimeout(qrPollingRef.current);
       if (qrRetryRef.current) clearTimeout(qrRetryRef.current);
     };
   }, []);
@@ -236,26 +233,6 @@ export default function UserDetails() {
   };
 
 
-  // QR polling - check if status becomes WORKING/READY
-  const pollQrStatus = useCallback(async (userId: string) => {
-    const status = await fetchStatus(userId);
-    if (status === 'WORKING' || status === 'READY') {
-      qrFlowActiveRef.current = false;
-      validQrLoadedRef.current = false;
-      setShowQrModal(false);
-      setQrDataUrl(null);
-      toast({
-        title: 'Connected',
-        description: 'WhatsApp is now connected!',
-      });
-      return;
-    }
-
-    // /status never closes a live QR flow. /qr-base64 owns waiting and image
-    // visibility until it expires or status confirms a connection.
-    qrPollingRef.current = setTimeout(() => pollQrStatus(userId), POLL_INTERVAL);
-  }, [fetchStatus, toast]);
-
   // Fetch the QR, retrying every 3s for up to 120s while WEBJS starts.
   const loadQrWithRetry = async (userId: string, deadline: number, token: number) => {
     try {
@@ -281,8 +258,6 @@ export default function UserDetails() {
         setIsLoadingQR(false);
         setSessionStatus('SCAN_QR_CODE');
         statusCache.set(userId, 'SCAN_QR_CODE');
-        if (qrPollingRef.current) clearTimeout(qrPollingRef.current);
-        qrPollingRef.current = setTimeout(() => pollQrStatus(userId), POLL_INTERVAL);
         return;
       }
 
@@ -314,7 +289,7 @@ export default function UserDetails() {
         setQrWaitMsg('Waiting for QR…');
         qrRetryRef.current = setTimeout(
           () => loadQrWithRetry(userId, deadline, token),
-          QR_RETRY_INTERVAL,
+          Math.max(QR_RETRY_INTERVAL, qrResult.retryAfterMs || 0),
         );
         return;
       }
@@ -349,7 +324,6 @@ export default function UserDetails() {
 
   const startQrLoad = (userId: string) => {
     if (qrRetryRef.current) clearTimeout(qrRetryRef.current);
-    if (qrPollingRef.current) clearTimeout(qrPollingRef.current);
     qrFlowActiveRef.current = true;
     validQrLoadedRef.current = false;
     const token = ++qrRetryTokenRef.current;
@@ -371,10 +345,6 @@ export default function UserDetails() {
     qrFlowActiveRef.current = false;
     validQrLoadedRef.current = false;
     qrRetryTokenRef.current++;
-    if (qrPollingRef.current) {
-      clearTimeout(qrPollingRef.current);
-      qrPollingRef.current = null;
-    }
     if (qrRetryRef.current) {
       clearTimeout(qrRetryRef.current);
       qrRetryRef.current = null;

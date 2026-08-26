@@ -99,20 +99,10 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
 
     try {
       if (validQrLoadedRef.current) {
-        const result = await gatewayService.getUserStatus(userId);
-        const status = result.session?.status || 'UNKNOWN';
-        addLog(`Status: ${status}`);
-        if (status === 'WORKING' || status === 'READY') {
-          cleanup();
-          setPhase('connected');
-          setQrDataUrl(null);
-          addLog('✅ WhatsApp connected!');
-          onSuccess?.();
-          return;
-        }
-        // Once displayed, only a confirmed connection may replace the QR.
+        // A loaded QR is authoritative. Stop all polling until the user closes
+        // the dialog; /status must never hide or replace the image.
+        cleanup();
         setPhase('scan_qr');
-        pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
         return;
       }
 
@@ -127,8 +117,7 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
         setQrDataUrl(qrResult.dataUrl ?? null);
         setPhase('scan_qr');
         addLog('✅ QR code displayed');
-        pollStartTimeRef.current = Date.now();
-        pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
+        cleanup();
         return;
       }
       if (isRetryableQRResponse(qrResult)) {

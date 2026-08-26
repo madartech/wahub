@@ -90,6 +90,8 @@ export interface UserStatusResponse {
 export interface QRResponse {
   ok: boolean;
   dataUrl?: string;
+  cached?: boolean;
+  retryAfterMs?: number;
   alreadyConnected?: boolean;
   status?: SessionStatus;
   error?: string;
@@ -128,6 +130,7 @@ export interface ProvisionResponse {
   port?: number;
   qrEndpoint?: string;
   status?: SessionStatus;
+  qrPreparing?: boolean;
   error?: string;
 }
 
