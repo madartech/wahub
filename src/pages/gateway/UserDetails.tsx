@@ -63,6 +63,9 @@ export default function UserDetails() {
   const [qrError, setQrError] = useState<string | null>(null);
   const [showQrModal, setShowQrModal] = useState(false);
   const qrPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const qrRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const qrRetryTokenRef = useRef(0);
+  const [qrWaitMsg, setQrWaitMsg] = useState<string | null>(null);
 
   // Send test message state
   const [testPhone, setTestPhone] = useState('');
