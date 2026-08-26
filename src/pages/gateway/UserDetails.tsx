@@ -17,9 +17,7 @@ import PairingCodeDialog from '@/components/operations/dialogs/PairingCodeDialog
 import { statusCache } from '@/services/statusCache';
 
 
-const POLL_INTERVAL = 2000; // 2 seconds
-const PROVISION_POLL_INTERVAL = 3000; // 3 seconds (post-provision status polling)
-const MAX_POLL_TIME = 90000; // 90 seconds
+const POLL_INTERVAL = 3000; // 3 seconds
 const QR_RETRY_INTERVAL = 3000; // retry /qr-base64 every 3s
 const QR_RETRY_MAX_MS = 90000; // for up to 90s
 
@@ -56,8 +54,6 @@ export default function UserDetails() {
 
   // Provisioning state
   const [isProvisioning, setIsProvisioning] = useState(false);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pollStartTimeRef = useRef<number>(0);
 
   // QR state
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -67,6 +63,7 @@ export default function UserDetails() {
   const qrPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const qrRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const qrRetryTokenRef = useRef(0);
+  const qrFlowActiveRef = useRef(false);
   const [qrWaitMsg, setQrWaitMsg] = useState<string | null>(null);
 
   // Send test message state
@@ -89,7 +86,6 @@ export default function UserDetails() {
   // Cleanup polling on unmount
   useEffect(() => {
     return () => {
-      if (pollingRef.current) clearTimeout(pollingRef.current);
       if (qrPollingRef.current) clearTimeout(qrPollingRef.current);
       if (qrRetryRef.current) clearTimeout(qrRetryRef.current);
     };
@@ -98,15 +94,32 @@ export default function UserDetails() {
   // Fetch user status - single source of truth
   const fetchStatus = useCallback(async (userId: string) => {
     const result = await gatewayService.getUserStatus(userId);
+    const nextStatus = result.ok && result.session ? result.session.status : 'UNKNOWN';
+
+    setSessionStatus((currentStatus) => {
+      // WEBJS can temporarily report UNKNOWN/STARTING while its status lookup
+      // times out. Once the QR flow has reached SCAN_QR_CODE, only a real
+      // terminal state may move the visible UI away from that state.
+      if (
+        qrFlowActiveRef.current &&
+        currentStatus === 'SCAN_QR_CODE' &&
+        nextStatus !== 'SCAN_QR_CODE' &&
+        nextStatus !== 'WORKING' &&
+        nextStatus !== 'READY' &&
+        nextStatus !== 'FAILED' &&
+        nextStatus !== 'STOPPED'
+      ) {
+        return currentStatus;
+      }
+      return nextStatus;
+    });
+
     if (result.ok && result.session) {
-      setSessionStatus(result.session.status);
       if (result.phoneNumber) {
         setPhoneNumber(result.phoneNumber);
       }
-      return result.session.status;
+      return nextStatus;
     }
-    // On error, set to UNKNOWN
-    setSessionStatus('UNKNOWN');
     return 'UNKNOWN' as SessionStatus;
   }, []);
 
@@ -179,38 +192,6 @@ export default function UserDetails() {
     }
   };
 
-  // Poll status until it reaches target state or timeout
-  const pollStatus = useCallback(async (userId: string, targetStates: SessionStatus[]) => {
-    const elapsed = Date.now() - pollStartTimeRef.current;
-    if (elapsed >= MAX_POLL_TIME) {
-      setIsProvisioning(false);
-      toast({
-        title: 'Timeout',
-        description: 'Provisioning took too long. Please try again.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const status = await fetchStatus(userId);
-    if (targetStates.includes(status)) {
-      setIsProvisioning(false);
-      if (status === 'SCAN_QR_CODE') {
-        // Auto-open QR modal
-        handleOpenQrModal();
-      } else if (status === 'WORKING' || status === 'READY') {
-        toast({
-          title: 'Connected',
-          description: 'WhatsApp is now connected!',
-        });
-      }
-      return;
-    }
-
-    // Continue polling
-    pollingRef.current = setTimeout(() => pollStatus(userId, targetStates), PROVISION_POLL_INTERVAL);
-  }, [fetchStatus, toast]);
-
   const handleProvision = async () => {
     if (!id) return;
 
@@ -239,9 +220,13 @@ export default function UserDetails() {
         return;
       }
 
-      // Provision succeeded — open the QR immediately, never wait for /status.
       setIsProvisioning(false);
-      await handleOpenQrModal();
+      if (st === 'SCAN_QR_CODE') {
+        // Activate synchronously so an older in-flight /status request cannot
+        // overwrite SCAN_QR_CODE before React renders the QR panel.
+        qrFlowActiveRef.current = true;
+        await handleOpenQrModal();
+      }
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to provision user';
@@ -256,7 +241,7 @@ export default function UserDetails() {
   const pollQrStatus = useCallback(async (userId: string) => {
     const status = await fetchStatus(userId);
     if (status === 'WORKING' || status === 'READY') {
-      // Connected! Close modal
+      qrFlowActiveRef.current = false;
       setShowQrModal(false);
       setQrDataUrl(null);
       toast({
@@ -266,14 +251,16 @@ export default function UserDetails() {
       return;
     }
 
-    if (status === 'SCAN_QR_CODE') {
-      // Still waiting for scan, continue polling
-      qrPollingRef.current = setTimeout(() => pollQrStatus(userId), POLL_INTERVAL);
-    } else {
-      // Status changed to something else, close modal
+    if (status === 'FAILED' || status === 'STOPPED') {
+      qrFlowActiveRef.current = false;
       setShowQrModal(false);
       setQrDataUrl(null);
+      return;
     }
+
+    // SCAN_QR_CODE, UNKNOWN, and transient STARTING are non-fatal while the
+    // QR is displayed. Keep the panel open and preserve the previous UI.
+    qrPollingRef.current = setTimeout(() => pollQrStatus(userId), POLL_INTERVAL);
   }, [fetchStatus, toast]);
 
   // Fetch the QR, retrying every 3s for up to 90s while it isn't available yet.
@@ -282,7 +269,21 @@ export default function UserDetails() {
       const qrResult = await gatewayService.getQRCode(userId);
       if (token !== qrRetryTokenRef.current) return;
 
+      if (qrResult.status === 'SCAN_QR_CODE') {
+        setSessionStatus('SCAN_QR_CODE');
+        statusCache.set(userId, 'SCAN_QR_CODE');
+      } else if (
+        qrResult.status === 'WORKING' ||
+        qrResult.status === 'READY' ||
+        qrResult.status === 'FAILED' ||
+        qrResult.status === 'STOPPED'
+      ) {
+        setSessionStatus(qrResult.status);
+        statusCache.set(userId, qrResult.status);
+      }
+
       if (qrResult.alreadyConnected) {
+        qrFlowActiveRef.current = false;
         setIsLoadingQR(false);
         setQrWaitMsg(null);
         setShowQrModal(false);
@@ -338,6 +339,7 @@ export default function UserDetails() {
   const startQrLoad = (userId: string) => {
     if (qrRetryRef.current) clearTimeout(qrRetryRef.current);
     if (qrPollingRef.current) clearTimeout(qrPollingRef.current);
+    qrFlowActiveRef.current = true;
     const token = ++qrRetryTokenRef.current;
     setIsLoadingQR(true);
     setQrError(null);
@@ -353,6 +355,7 @@ export default function UserDetails() {
   };
 
   const handleCloseQrModal = () => {
+    qrFlowActiveRef.current = false;
     qrRetryTokenRef.current++;
     if (qrPollingRef.current) {
       clearTimeout(qrPollingRef.current);
