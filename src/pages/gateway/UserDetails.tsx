@@ -88,7 +88,9 @@ export default function UserDetails() {
   useEffect(() => {
     return () => {
       if (pollingRef.current) clearTimeout(pollingRef.current);
+      if (pollingRef.current) clearTimeout(pollingRef.current);
       if (qrPollingRef.current) clearTimeout(qrPollingRef.current);
+      if (qrRetryRef.current) clearTimeout(qrRetryRef.current);
     };
   }, []);
 
