@@ -100,7 +100,7 @@ export const gatewayService = {
 
   // Provision a user (create WAHA instance) — can take ~15-30s, allow 60s
   async provisionUser(userId: string): Promise<ProvisionResponse> {
-    const url = `${GATEWAY_BASE_URL}/admin/users/${userId}/provision`;
+    const url = `${GATEWAY_BASE_URL}/admin/users/${userId}/provision?_t=${Date.now()}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
 
