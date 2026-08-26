@@ -18,7 +18,9 @@ import { statusCache } from '@/services/statusCache';
 
 
 const POLL_INTERVAL = 2000; // 2 seconds
+const PROVISION_POLL_INTERVAL = 3000; // 3 seconds (post-provision status polling)
 const MAX_POLL_TIME = 90000; // 90 seconds
+
 
 const DISPLAY_NAMES_KEY = 'gateway_user_display_names';
 
