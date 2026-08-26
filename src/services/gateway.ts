@@ -194,7 +194,8 @@ export const gatewayService = {
     }
 
     // Log the gateway result before normalizing it for either QR UI.
-    console.info('qr-base64 response', {
+    console.info('qr-base64 response (raw JSON)', data);
+    console.info('qr-base64 response summary', {
       httpStatus: res.status,
       ok: data.ok,
       status: data.status || data.session?.status,

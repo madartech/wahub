@@ -108,10 +108,11 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
         validQrLoadedRef.current = false;
         setQr({ ok: true, alreadyConnected: true, status: st as SessionStatus });
         onConnected?.();
+        onOpenChange(false);
       }
     }, POLL_MS);
     return () => clearInterval(id);
-  }, [open, fetchStatus, onConnected]);
+  }, [open, fetchStatus, onConnected, onOpenChange]);
 
   const handleProvision = async () => {
     setProvisioning(true);
