@@ -201,8 +201,8 @@ export default function UserDetails() {
       // Update local user state with instance info
       setUser(prev => prev ? {
         ...prev,
-        instanceId: provisionResult.instanceId,
-        port: provisionResult.port,
+        ...(provisionResult.instanceId ? { instanceId: provisionResult.instanceId } : {}),
+        ...(provisionResult.port ? { port: provisionResult.port } : {}),
       } : null);
 
       const st = provisionResult.status;

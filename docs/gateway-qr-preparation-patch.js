@@ -89,9 +89,8 @@ function attachQrPreparationRoutes(options) {
   function start(user) {
     const userId = String(user.id);
     const existing = jobs.get(userId);
-    if (existing) return existing;
-
     const generation = getGeneration(userId);
+    if (existing && existing.generation === generation) return existing;
     const state = {
       userId,
       startedAt: Date.now(),
