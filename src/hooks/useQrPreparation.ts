@@ -2,12 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { gatewayService } from '@/services/gateway';
 
 export const QR_POLL_INTERVAL_MS = 3000;
-export const QR_AUTO_PROVISION_INTERVAL_MS = 12000;
-export const QR_WAITING_MESSAGE = 'Preparing WhatsApp QR… this usually takes a few seconds.';
+export const QR_WAITING_MESSAGE = 'Preparing QR, please wait…';
 
 export interface UseQrPreparationOptions {
   userId?: string;
-  /** Run the provision + poll loop while true. */
+  /** Provision once, then poll /qr-base64 while true. */
   active: boolean;
   /** Fired once when the backend reports the session is connected. */
   onConnected?: () => void;
@@ -27,9 +26,8 @@ export interface UseQrPreparationResult {
 }
 
 /**
- * Simple, reliable QR preparation loop:
- * provision immediately, poll /qr-base64 immediately and then every 3s,
- * re-provision every 12s until a QR image or a connected session appears.
+ * Old, simple flow: provision once, then poll /qr-base64 every 3s until a QR
+ * image or a connected session appears. No debug output, no self-healing loop.
  */
 export function useQrPreparation({
   userId,
@@ -43,7 +41,6 @@ export function useQrPreparation({
   const [refreshing, setRefreshing] = useState(false);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const provisionRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const genRef = useRef(0);
 
   const onConnectedRef = useRef(onConnected);
@@ -55,10 +52,6 @@ export function useQrPreparation({
     if (pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
-    }
-    if (provisionRef.current) {
-      clearInterval(provisionRef.current);
-      provisionRef.current = null;
     }
   }, []);
 
@@ -78,17 +71,6 @@ export function useQrPreparation({
     setConnected(false);
     setAttempt(0);
     setRefreshing(showRefreshing);
-
-    const provision = async () => {
-      if (gen !== genRef.current) return;
-      try {
-        await gatewayService.provisionUser(id);
-      } catch (e) {
-        console.info('[QR_PROVISION_RETRY]', { userId: id, error: e });
-      } finally {
-        if (gen === genRef.current) setRefreshing(false);
-      }
-    };
 
     const poll = async () => {
       if (gen !== genRef.current) return;
@@ -120,10 +102,19 @@ export function useQrPreparation({
       }
     };
 
-    void provision();
-    void poll();
-    pollRef.current = setInterval(() => void poll(), QR_POLL_INTERVAL_MS);
-    provisionRef.current = setInterval(() => void provision(), QR_AUTO_PROVISION_INTERVAL_MS);
+    const run = async () => {
+      try {
+        await gatewayService.provisionUser(id);
+      } catch (e) {
+        console.info('[QR_PROVISION_RETRY]', { userId: id, error: e });
+      }
+      if (gen !== genRef.current) return;
+      setRefreshing(false);
+      void poll();
+      pollRef.current = setInterval(() => void poll(), QR_POLL_INTERVAL_MS);
+    };
+
+    void run();
   }, [clearTimers]);
 
   const refresh = useCallback(async () => {
