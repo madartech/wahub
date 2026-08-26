@@ -89,6 +89,9 @@ export interface UserStatusResponse {
 
 export interface QRResponse {
   ok: boolean;
+  userId?: string;
+  endpoint?: string;
+  polledAt?: string;
   dataUrl?: string;
   cached?: boolean;
   retryAfterMs?: number;

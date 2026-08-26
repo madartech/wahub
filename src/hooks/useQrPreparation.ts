@@ -8,6 +8,10 @@ export const QR_WAITING_MESSAGE = 'Preparing QR… retrying automatically';
 
 export interface QrResultSummary {
   ok: boolean;
+  userId: string;
+  endpoint: string;
+  polledAt: string;
+  retryCount: number;
   status?: SessionStatus;
   error?: string;
   hasDataUrl: boolean;
@@ -75,6 +79,7 @@ export function useQrPreparation({
   const tokenRef = useRef(0);
   const deadlineRef = useRef(0);
   const qrLoadedRef = useRef(false);
+  const retryCountRef = useRef(0);
 
   const onConnectedRef = useRef(onConnected);
   onConnectedRef.current = onConnected;
@@ -96,6 +101,7 @@ export function useQrPreparation({
   const reset = useCallback(() => {
     stop();
     qrLoadedRef.current = false;
+    retryCountRef.current = 0;
     setDataUrl(null);
     setExpired(false);
     setConnected(false);
@@ -111,14 +117,25 @@ export function useQrPreparation({
         result = await gatewayService.getQRCode(id);
       } catch (e) {
         // Network/abort failures are retryable, never terminal mid-window.
-        result = { ok: false, error: e instanceof Error ? e.message : 'network_error' };
+        result = {
+          ok: false,
+          userId: id,
+          endpoint: `/admin/users/${encodeURIComponent(id)}/qr-base64`,
+          polledAt: new Date().toISOString(),
+          error: e instanceof Error ? e.message : 'network_error',
+        };
       }
       console.log('[QR_BASE64_RESPONSE]', result);
       if (token !== tokenRef.current) return;
 
       const gotImage = hasQrImage(result);
+      retryCountRef.current += 1;
       setLastResult({
         ok: result.ok,
+        userId: result.userId || id,
+        endpoint: result.endpoint || `/admin/users/${encodeURIComponent(id)}/qr-base64`,
+        polledAt: result.polledAt || new Date().toISOString(),
+        retryCount: retryCountRef.current,
         status: result.status,
         error: result.error,
         hasDataUrl: gotImage,
@@ -176,6 +193,7 @@ export function useQrPreparation({
     clearTimer();
     const token = ++tokenRef.current;
     qrLoadedRef.current = false;
+    retryCountRef.current = 0;
     deadlineRef.current = Date.now() + QR_MAX_WINDOW_MS;
     setDataUrl(null);
     setExpired(false);
@@ -192,6 +210,7 @@ export function useQrPreparation({
     // Clear the stale image first so a failed scan cannot linger on screen.
     stop();
     qrLoadedRef.current = false;
+    retryCountRef.current = 0;
     setDataUrl(null);
     setExpired(false);
     setError(null);

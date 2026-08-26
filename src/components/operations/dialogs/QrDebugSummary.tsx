@@ -9,9 +9,12 @@ export default function QrDebugSummary({ result }: { result: QrResultSummary | n
   return (
     <details className="w-full text-center text-xs text-muted-foreground">
       <summary className="cursor-pointer select-none">Debug details</summary>
-      <p className="mt-1 break-all">
-        Last QR: ok={String(result.ok)}, status={result.status || 'none'}, error={result.error || 'none'}, hasDataUrl={String(result.hasDataUrl)}
-      </p>
+      <div className="mt-1 space-y-1 break-all text-left">
+        <p>User ID: {result.userId}</p>
+        <p>Endpoint: {result.endpoint}</p>
+        <p>Poll #{result.retryCount} at {result.polledAt}</p>
+        <p>Last QR: ok={String(result.ok)}, status={result.status || 'none'}, error={result.error || 'none'}, hasDataUrl={String(result.hasDataUrl)}</p>
+      </div>
     </details>
   );
 }

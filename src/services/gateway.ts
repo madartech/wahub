@@ -164,26 +164,38 @@ export const gatewayService = {
   // WEBJS/Chromium can be slow. Keep each request bounded so the UI can make
   // fresh /qr-base64 attempts every 3 seconds after retryable JSON responses.
   async getQRCode(userId: string): Promise<QRResponse> {
+    const endpoint = `${GATEWAY_BASE_URL}/admin/users/${encodeURIComponent(userId)}/qr-base64`;
+    const url = `${endpoint}?_t=${Date.now()}`;
+    const polledAt = new Date().toISOString();
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     let res: Response;
     try {
-      res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/qr-base64?_t=${Date.now()}`, {
+      console.info('[QR_BASE64_REQUEST]', { userId, endpoint, url, polledAt });
+      res = await fetch(url, {
         method: 'GET',
         headers: {
           'X-Admin-Token': ADMIN_TOKEN,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
         },
+        cache: 'no-store',
         signal: controller.signal,
       });
     } catch (e) {
       clearTimeout(timeoutId);
-      return {
+      const failedResult: QRResponse = {
         ok: false,
+        userId,
+        endpoint,
+        polledAt,
         error: e instanceof DOMException && e.name === 'AbortError'
           ? 'QR request timed out'
           : e instanceof TypeError ? 'Network/CORS error reaching gateway.walinkme.com. Please refresh the app.' : e instanceof Error ? e.message : 'network_error',
       };
+      console.info('[QR_BASE64_RESPONSE]', failedResult);
+      return failedResult;
     }
     clearTimeout(timeoutId);
 
@@ -196,8 +208,11 @@ export const gatewayService = {
     }
 
     // Log the gateway result before normalizing it for either QR UI.
-    console.info('qr-base64 response (raw JSON)', data);
-    console.info('qr-base64 response summary', {
+    console.info('[QR_BASE64_RESPONSE]', {
+      userId,
+      endpoint,
+      url,
+      polledAt,
       httpStatus: res.status,
       ok: data.ok,
       status: data.status || data.session?.status,
@@ -230,6 +245,9 @@ export const gatewayService = {
     if (typeof dataUrl === 'string' && dataUrl.startsWith('data:image/')) {
       return {
         ok: data.ok !== false,
+        userId,
+        endpoint,
+        polledAt,
         dataUrl,
         cached: data.cached === true,
         retryAfterMs: Number.isFinite(data.retryAfterMs) ? data.retryAfterMs : undefined,
@@ -243,6 +261,9 @@ export const gatewayService = {
     if (!res.ok || data.ok === false) {
       return {
         ok: false,
+        userId,
+        endpoint,
+        polledAt,
         error: typeof data.error === 'string' ? data.error : responseText || `HTTP ${res.status}`,
         status,
         detail,
@@ -252,12 +273,15 @@ export const gatewayService = {
     }
 
     if (data.alreadyConnected || status === 'WORKING') {
-      return { ok: true, alreadyConnected: true, status };
+      return { ok: true, userId, endpoint, polledAt, alreadyConnected: true, status };
     }
 
     if (!dataUrl) {
       return {
         ok: false,
+        userId,
+        endpoint,
+        polledAt,
         error: data.error || data.message || 'QR not available yet',
         status,
         detail,
@@ -265,7 +289,7 @@ export const gatewayService = {
       };
     }
 
-    return { ok: true, dataUrl, status };
+    return { ok: true, userId, endpoint, polledAt, dataUrl, status };
   },
 
 
