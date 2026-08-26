@@ -13,7 +13,7 @@ export default function QrDebugSummary({ result }: { result: QrResultSummary | n
     <Collapsible className="w-full text-xs text-muted-foreground">
       <CollapsibleTrigger asChild>
         <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-          Show debug <ChevronDown className="ml-1 h-3 w-3" />
+          Advanced debug <ChevronDown className="ml-1 h-3 w-3" />
         </Button>
       </CollapsibleTrigger>
       <CollapsibleContent className="mt-1 rounded border bg-muted/40 p-2">
