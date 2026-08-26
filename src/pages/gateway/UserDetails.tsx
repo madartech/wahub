@@ -231,25 +231,15 @@ export default function UserDetails() {
         statusCache.set(id, st);
       }
 
-      // Backend already reports the QR is ready — show it immediately.
-      if (st === 'SCAN_QR_CODE') {
-        setIsProvisioning(false);
-        await handleOpenQrModal();
-        return;
-      }
-
       if (st === 'WORKING' || st === 'READY') {
         setIsProvisioning(false);
         toast({ title: 'Connected', description: 'WhatsApp is already connected.' });
         return;
       }
 
-      // Otherwise poll status every 3s for up to 90s
-      pollStartTimeRef.current = Date.now();
-      pollingRef.current = setTimeout(
-        () => pollStatus(id, ['SCAN_QR_CODE', 'WORKING', 'READY']),
-        PROVISION_POLL_INTERVAL
-      );
+      // Provision succeeded — open the QR immediately, never wait for /status.
+      setIsProvisioning(false);
+      await handleOpenQrModal();
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to provision user';
