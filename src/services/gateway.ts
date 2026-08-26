@@ -160,10 +160,10 @@ export const gatewayService = {
 
 
 
-  // WEBJS/Chromium can be slow, but each QR request may wait up to 90 seconds.
+  // WEBJS/Chromium can be slow, but each QR request may wait up to 120 seconds.
   async getQRCode(userId: string): Promise<QRResponse> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000);
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
 
     let res: Response;
     try {
@@ -216,6 +216,17 @@ export const gatewayService = {
       (typeof data.qr === 'string'
         ? (data.qr.startsWith('data:') ? data.qr : `data:image/png;base64,${data.qr}`)
         : undefined);
+
+    // A valid image payload is authoritative for the QR UI, even if legacy
+    // metadata in the same response is missing or inconsistent.
+    if (typeof dataUrl === 'string' && dataUrl.startsWith('data:image/')) {
+      return {
+        ok: data.ok !== false,
+        dataUrl,
+        status,
+        error: typeof data.error === 'string' ? data.error : undefined,
+      };
+    }
 
     if (!res.ok || data.ok === false) {
       return {

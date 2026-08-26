@@ -19,11 +19,19 @@ interface Props {
   onConnected?: () => void;
 }
 
+interface QrResultSummary {
+  ok: boolean;
+  status?: SessionStatus;
+  error?: string;
+  hasDataUrl: boolean;
+}
+
 export default function QrDialog({ open, onOpenChange, userId, userName, onConnected }: Props) {
   const [loading, setLoading] = useState(false);
   const [qr, setQr] = useState<QRResponse | null>(null);
   const [status, setStatus] = useState<SessionStatus | 'UNKNOWN'>('UNKNOWN');
   const [provisioning, setProvisioning] = useState(false);
+  const [lastQrResult, setLastQrResult] = useState<QrResultSummary | null>(null);
   const startedAtRef = useRef<number>(0);
   const qrRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const qrRequestTokenRef = useRef(0);
@@ -58,15 +66,23 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
       qrRequestTokenRef.current += 1;
       if (qrRetryRef.current) clearTimeout(qrRetryRef.current);
       setQr(null);
+      setLastQrResult(null);
       validQrLoadedRef.current = false;
     }
     const token = qrRequestTokenRef.current;
     setLoading(true);
     const r = await gatewayService.getQRCode(userId);
+    console.log('[QR_BASE64_RESPONSE]', r);
     if (token !== qrRequestTokenRef.current) return;
-    if (r.ok && r.dataUrl) {
+    const hasDataUrl = typeof r.dataUrl === 'string' && r.dataUrl.startsWith('data:image/');
+    setLastQrResult({ ok: r.ok, status: r.status, error: r.error, hasDataUrl });
+    if (hasDataUrl) {
+      // dataUrl is authoritative; render it before considering any metadata.
       validQrLoadedRef.current = true;
+      setQr(r);
+      setLoading(false);
       setStatus('SCAN_QR_CODE');
+      return;
     } else if (r.status === 'SCAN_QR_CODE' || r.status === 'WORKING' || r.status === 'READY' || r.status === 'FAILED' || r.status === 'STOPPED') {
       setStatus(r.status);
     }
@@ -85,6 +101,7 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
     startedAtRef.current = Date.now();
     qrRequestTokenRef.current += 1;
     setQr(null);
+    setLastQrResult(null);
     validQrLoadedRef.current = false;
     setStatus('UNKNOWN');
     void fetchQR();
@@ -146,7 +163,7 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
           <DialogDescription>WhatsApp → Linked Devices → Link a device</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col items-center gap-3">
-          {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
+          {loading && !qr?.dataUrl && <p className="text-sm text-muted-foreground">Waiting for QR…</p>}
 
           {!loading && connected && (
             <div className="flex items-center gap-2 text-success">
@@ -154,12 +171,23 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
             </div>
           )}
 
-          {!loading && showQr && (
+          {showQr && (
             <img
               src={qr?.dataUrl}
               alt="WhatsApp QR"
               className="w-full max-w-[256px] aspect-square rounded border bg-white"
             />
+          )}
+
+          {lastQrResult && !showQr && (
+            <div className="text-center text-xs text-muted-foreground">
+              <p>
+                Last QR: ok={String(lastQrResult.ok)}, status={lastQrResult.status || 'none'}, error={lastQrResult.error || 'none'}, hasDataUrl={String(lastQrResult.hasDataUrl)}
+              </p>
+              {lastQrResult.hasDataUrl && (
+                <p className="mt-1 font-medium text-destructive">QR image received but was not rendered.</p>
+              )}
+            </div>
           )}
 
           {!loading && !connected && !showQr && (
