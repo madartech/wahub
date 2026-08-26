@@ -109,8 +109,12 @@ export default function UserDetails() {
       }
 
       setIsLoading(true);
+      // Show last-known status immediately (from the Users list fan-out)
+      const cached = statusCache.get(id);
+      if (cached) setSessionStatus(cached);
+
       const result = await gatewayService.getUsers();
-      
+
       if (result.ok) {
         const foundUser = result.users.find(u => u.id === id);
         if (foundUser) {
@@ -120,8 +124,11 @@ export default function UserDetails() {
             ...foundUser,
             name: storedName || foundUser.name,
           });
-          // Fetch live status
-          await fetchStatus(id);
+          setIsLoading(false);
+          // Live status is slow (gateway /status can take tens of seconds) —
+          // fetch it in the background instead of blocking the page render.
+          void fetchStatus(id).then((s) => { if (s) statusCache.set(id, s); });
+          return;
         } else {
           setError('User not found');
         }
@@ -132,6 +139,7 @@ export default function UserDetails() {
     };
 
     fetchUser();
+
   }, [id, navigate, fetchStatus]);
 
   const handleCopy = async (text: string, label: string) => {
