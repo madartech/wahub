@@ -665,7 +665,10 @@ export default function UserDetails() {
                   <div className="flex flex-col items-center justify-center gap-3 h-48 w-48 sm:h-64 sm:w-64">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">{qr.waitingMessage}</p>
-                    {qr.lastResult && <p className="text-xs text-muted-foreground">Poll #{qr.lastResult.retryCount}</p>}
+                    {qr.lastResult && <p className="text-xs text-muted-foreground">Attempt {qr.lastResult.retryCount}</p>}
+                    {qr.slow && (
+                      <p className="text-sm text-muted-foreground text-center px-2">{qr.slowMessage}</p>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-8">
