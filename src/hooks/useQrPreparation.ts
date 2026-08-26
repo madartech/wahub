@@ -126,9 +126,16 @@ export function useQrPreparation({
 
       // The image payload is authoritative — commit before any other check.
       if (gotImage) {
-        qlComplete(result.dataUrl as string);
+        stop();
+        qrLoadedRef.current = true;
+        setDataUrl(result.dataUrl as string);
+        setError(null);
+        setExpired(false);
+        setProgress(100);
+        onQrLoadedRef.current?.();
         return;
       }
+
 
       if (result.alreadyConnected || result.status === 'WORKING' || result.status === 'READY') {
         stop();
