@@ -199,6 +199,9 @@ export default function UserDetails() {
 
     setIsProvisioning(true);
     setError(null);
+    // Open the QR panel first — the shared hook starts its 120s window now.
+    setShowQrModal(true);
+    qrFlowActiveRef.current = true;
 
     try {
       const provisionResult = await gatewayService.provisionUser(id);
@@ -211,161 +214,43 @@ export default function UserDetails() {
       } : null);
 
       const st = provisionResult.status;
-      if (st) {
+      if (st === 'WORKING' || st === 'READY') {
         setSessionStatus(st);
         statusCache.set(id, st);
-      }
-
-      if (st === 'WORKING' || st === 'READY') {
-        setIsProvisioning(false);
+        setShowQrModal(false);
+        qrFlowActiveRef.current = false;
         toast({ title: 'Connected', description: 'WhatsApp is already connected.' });
-        return;
+      } else if (st === 'SCAN_QR_CODE') {
+        setSessionStatus('SCAN_QR_CODE');
+        statusCache.set(id, 'SCAN_QR_CODE');
       }
-
-      setIsProvisioning(false);
-      // A successful provision response is sufficient to open the QR flow.
-      // /qr-base64, not the slower /status endpoint, decides QR visibility.
-      qrFlowActiveRef.current = true;
-      if (st === 'SCAN_QR_CODE') setSessionStatus('SCAN_QR_CODE');
-      await handleOpenQrModal();
-
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to provision user';
       setError(errorMessage);
       toast({ title: 'Provision failed', description: errorMessage, variant: 'destructive' });
+    } finally {
       setIsProvisioning(false);
     }
-  };
-
-
-  // Fetch the QR, retrying every 3s for up to 120s while WEBJS starts.
-  const loadQrWithRetry = async (userId: string, deadline: number, token: number) => {
-    try {
-      const qrResult = await gatewayService.getQRCode(userId);
-      console.log('[QR_BASE64_RESPONSE]', qrResult);
-      if (token !== qrRetryTokenRef.current) return;
-
-      const hasDataUrl = typeof qrResult.dataUrl === 'string' && qrResult.dataUrl.startsWith('data:image/');
-      setLastQrResult({
-        ok: qrResult.ok,
-        status: qrResult.status,
-        error: qrResult.error,
-        hasDataUrl,
-      });
-
-      // The image payload is the source of truth. Commit it before inspecting
-      // status/error fields so valid QR responses can never remain in waiting.
-      if (hasDataUrl) {
-        validQrLoadedRef.current = true;
-        setQrDataUrl(qrResult.dataUrl ?? null);
-        setQrError(null);
-        setQrWaitMsg(null);
-        setIsLoadingQR(false);
-        setSessionStatus('SCAN_QR_CODE');
-        statusCache.set(userId, 'SCAN_QR_CODE');
-        return;
-      }
-
-      if (qrResult.status === 'SCAN_QR_CODE') {
-        setSessionStatus('SCAN_QR_CODE');
-        statusCache.set(userId, 'SCAN_QR_CODE');
-      } else if (
-        qrResult.status === 'WORKING' ||
-        qrResult.status === 'READY' ||
-        qrResult.status === 'FAILED' ||
-        qrResult.status === 'STOPPED'
-      ) {
-        setSessionStatus(qrResult.status);
-        statusCache.set(userId, qrResult.status);
-      }
-
-      if (qrResult.alreadyConnected) {
-        qrFlowActiveRef.current = false;
-        setIsLoadingQR(false);
-        setQrWaitMsg(null);
-        setShowQrModal(false);
-        toast({ title: 'Already Connected', description: 'WhatsApp is already connected.' });
-        fetchStatus(userId);
-        return;
-      }
-
-      const retryable = isRetryableQRResponse(qrResult);
-      if (!hasDataUrl && !qrResult.alreadyConnected && Date.now() < deadline) {
-        setQrWaitMsg('Waiting for QR…');
-        qrRetryRef.current = setTimeout(
-          () => loadQrWithRetry(userId, deadline, token),
-          Math.max(QR_RETRY_INTERVAL, qrResult.retryAfterMs || 0),
-        );
-        return;
-      }
-
-      if (retryable) {
-        setQrError('QR was not ready after 120 seconds. Try Refresh QR.');
-      }
-
-      setIsLoadingQR(false);
-      setQrWaitMsg(null);
-      setQrError(current => current || qrResult.error || 'QR was not ready after 120 seconds. Try Refresh QR.');
-    } catch (err) {
-      if (token !== qrRetryTokenRef.current) return;
-      const isNetwork = err instanceof TypeError || /failed to fetch/i.test(String(err));
-      if (Date.now() < deadline) {
-        setQrWaitMsg(isNetwork ? 'Reconnecting to gateway…' : 'Waiting for QR…');
-        qrRetryRef.current = setTimeout(
-          () => loadQrWithRetry(userId, deadline, token),
-          QR_RETRY_INTERVAL,
-        );
-        return;
-      }
-      setIsLoadingQR(false);
-      setQrWaitMsg(null);
-      setQrError(
-        isNetwork
-          ? 'Network/CORS error reaching gateway.walinkme.com. Please refresh the app.'
-          : err instanceof Error ? err.message : 'Failed to get QR code',
-      );
-    }
-  };
-
-  const startQrLoad = (userId: string) => {
-    if (qrRetryRef.current) clearTimeout(qrRetryRef.current);
-    qrFlowActiveRef.current = true;
-    validQrLoadedRef.current = false;
-    const token = ++qrRetryTokenRef.current;
-    setIsLoadingQR(true);
-    setQrError(null);
-    setQrWaitMsg('Waiting for QR…');
-    setQrDataUrl(null);
-    setLastQrResult(null);
-    loadQrWithRetry(userId, Date.now() + QR_RETRY_MAX_MS, token);
   };
 
   const handleOpenQrModal = async () => {
     if (!id) return;
     setShowQrModal(true);
-    startQrLoad(id);
   };
 
   const handleCloseQrModal = () => {
     qrFlowActiveRef.current = false;
     validQrLoadedRef.current = false;
-    qrRetryTokenRef.current++;
-    if (qrRetryRef.current) {
-      clearTimeout(qrRetryRef.current);
-      qrRetryRef.current = null;
-    }
     setShowQrModal(false);
-    setQrDataUrl(null);
-    setQrError(null);
-    setQrWaitMsg(null);
-    setLastQrResult(null);
-    setIsLoadingQR(false);
+    qr.reset();
   };
 
   const handleRefreshQR = async () => {
     if (!id) return;
-    startQrLoad(id);
+    validQrLoadedRef.current = false;
+    await qr.refresh();
   };
+
 
   const handleRefreshStatus = async () => {
     if (!id) return;
