@@ -164,15 +164,16 @@ export const gatewayService = {
   // WEBJS/Chromium can be slow. Keep each request bounded so the UI can make
   // fresh /qr-base64 attempts every 3 seconds after retryable JSON responses.
   async getQRCode(userId: string): Promise<QRResponse> {
-    const endpoint = `${GATEWAY_BASE_URL}/admin/users/${encodeURIComponent(userId)}/qr-base64`;
-    const url = `${endpoint}?_t=${Date.now()}`;
+    const baseEndpoint = `${GATEWAY_BASE_URL}/admin/users/${encodeURIComponent(userId)}/qr-base64`;
+    const url = `${baseEndpoint}?_t=${Date.now()}`;
+    const endpoint = url;
     const polledAt = new Date().toISOString();
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     let res: Response;
     try {
-      console.info('[QR_BASE64_REQUEST]', { userId, endpoint, url, polledAt });
+      console.info('[QR_BASE64_REQUEST]', { userId, endpoint, polledAt });
       res = await fetch(url, {
         method: 'GET',
         headers: {
@@ -211,7 +212,6 @@ export const gatewayService = {
     console.info('[QR_BASE64_RESPONSE]', {
       userId,
       endpoint,
-      url,
       polledAt,
       httpStatus: res.status,
       ok: data.ok,
