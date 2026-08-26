@@ -156,15 +156,6 @@ export function useQrPreparation({
       }
 
 
-      if (result.alreadyConnected || result.status === 'WORKING' || result.status === 'READY') {
-        stop();
-        setConnected(true);
-        setError(null);
-        setProgress(100);
-        onConnectedRef.current?.();
-        return;
-      }
-
       // Every non-image response is transient. Keep polling while this
       // generation remains active; the separate 12s timer re-provisions it.
       setProgress((retryCountRef.current % 4) * 25);
