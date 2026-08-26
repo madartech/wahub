@@ -167,7 +167,7 @@ export const gatewayService = {
 
     let res: Response;
     try {
-      res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/qr-base64`, {
+      res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/qr-base64?_t=${Date.now()}`, {
         method: 'GET',
         headers: {
           'X-Admin-Token': ADMIN_TOKEN,
@@ -180,7 +180,7 @@ export const gatewayService = {
         ok: false,
         error: e instanceof DOMException && e.name === 'AbortError'
           ? 'QR request timed out'
-          : e instanceof Error ? e.message : 'network_error',
+          : e instanceof TypeError ? 'Network/CORS error reaching gateway.walinkme.com. Please refresh the app.' : e instanceof Error ? e.message : 'network_error',
       };
     }
     clearTimeout(timeoutId);
@@ -225,7 +225,7 @@ export const gatewayService = {
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     
     try {
-      const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/status`, {
+      const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/status?_t=${Date.now()}`, {
         method: 'GET',
         headers: { 
           'X-Admin-Token': ADMIN_TOKEN,
