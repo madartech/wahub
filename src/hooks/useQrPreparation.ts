@@ -4,7 +4,9 @@ import { QRResponse, SessionStatus } from '@/types/gateway';
 
 export const QR_POLL_INTERVAL_MS = 3000;
 export const QR_AUTO_PROVISION_INTERVAL_MS = 12000;
-export const QR_WAITING_MESSAGE = 'Preparing QR automatically… please wait.';
+export const QR_WAITING_MESSAGE = 'Preparing WhatsApp QR… this usually takes a few seconds.';
+export const QR_SLOW_HINT_MS = 60000;
+export const QR_SLOW_MESSAGE = 'Still preparing. Tap Refresh QR or close and reopen.';
 
 export interface QrResultSummary {
   ok: boolean;
@@ -38,6 +40,9 @@ export interface UseQrPreparationResult {
   waitingMessage: string;
   lastResult: QrResultSummary | null;
   progress: number;
+  /** True once the QR has not appeared within 60s of the current attempt. */
+  slow: boolean;
+  slowMessage: string;
   refreshing: boolean;
   /** Provision again, clear the QR image, restart polling from zero. */
   refresh: () => Promise<void>;
@@ -74,9 +79,11 @@ export function useQrPreparation({
   const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<QrResultSummary | null>(null);
   const [progress, setProgress] = useState(0);
+  const [slow, setSlow] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const provisionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tokenRef = useRef(0);
   const retryCountRef = useRef(0);
@@ -95,6 +102,10 @@ export function useQrPreparation({
       clearInterval(provisionTimerRef.current);
       provisionTimerRef.current = null;
     }
+    if (slowTimerRef.current) {
+      clearTimeout(slowTimerRef.current);
+      slowTimerRef.current = null;
+    }
   }, []);
 
   const stop = useCallback(() => {
@@ -111,6 +122,7 @@ export function useQrPreparation({
     setError(null);
     setLastResult(null);
     setProgress(0);
+    setSlow(false);
   }, [stop]);
 
   const poll = useCallback(
@@ -151,6 +163,7 @@ export function useQrPreparation({
         setError(null);
         setExpired(false);
         setProgress(100);
+        setSlow(false);
         onQrLoadedRef.current?.();
         return;
       }
@@ -161,6 +174,7 @@ export function useQrPreparation({
         setConnected(true);
         setError(null);
         setProgress(100);
+        setSlow(false);
         onConnectedRef.current?.();
         return;
       }
@@ -190,6 +204,10 @@ export function useQrPreparation({
     setError(null);
     setLastResult(null);
     setProgress(0);
+    setSlow(false);
+    slowTimerRef.current = setTimeout(() => {
+      if (token === tokenRef.current) setSlow(true);
+    }, QR_SLOW_HINT_MS);
 
     let provisionInFlight = false;
     const provision = async () => {
@@ -247,6 +265,8 @@ export function useQrPreparation({
     waitingMessage: QR_WAITING_MESSAGE,
     lastResult,
     progress,
+    slow,
+    slowMessage: QR_SLOW_MESSAGE,
     refreshing,
     refresh,
     restart,
