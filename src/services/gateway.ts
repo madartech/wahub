@@ -98,7 +98,7 @@ export const gatewayService = {
     };
   },
 
-  // Provision a user (create WAHA instance) — can take ~15-30s, allow 60s
+  // Provision starts backend QR preparation and should return immediately.
   async provisionUser(userId: string): Promise<ProvisionResponse> {
     const url = `${GATEWAY_BASE_URL}/admin/users/${userId}/provision?_t=${Date.now()}`;
     const controller = new AbortController();
@@ -140,6 +140,7 @@ export const gatewayService = {
         port: data.port,
         qrEndpoint: data.qrEndpoint,
         status: data.status as SessionStatus,
+        qrPreparing: data.qrPreparing === true,
       };
     } catch (error) {
       clearTimeout(timeoutId);
@@ -230,6 +231,8 @@ export const gatewayService = {
       return {
         ok: data.ok !== false,
         dataUrl,
+        cached: data.cached === true,
+        retryAfterMs: Number.isFinite(data.retryAfterMs) ? data.retryAfterMs : undefined,
         status,
         error: typeof data.error === 'string' ? data.error : undefined,
         detail,
@@ -244,6 +247,7 @@ export const gatewayService = {
         status,
         detail,
         body,
+        retryAfterMs: Number.isFinite(data.retryAfterMs) ? data.retryAfterMs : undefined,
       };
     }
 

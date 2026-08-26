@@ -38,18 +38,6 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
   const validQrLoadedRef = useRef(false);
   const fetchQrRef = useRef<(restartWindow?: boolean) => Promise<void>>(async () => undefined);
 
-  const fetchStatus = useCallback(async () => {
-    const s = await gatewayService.getUserStatus(userId);
-    const st = (s.session?.status || 'UNKNOWN') as SessionStatus | 'UNKNOWN';
-    setStatus((current) => {
-      if (st !== 'WORKING' && st !== 'READY' && (loading || validQrLoadedRef.current)) {
-        return validQrLoadedRef.current ? 'SCAN_QR_CODE' : current;
-      }
-      return st;
-    });
-    return st;
-  }, [loading, userId]);
-
   const fetchQR = useCallback(async (restartWindow = false) => {
     if (restartWindow) {
       startedAtRef.current = Date.now();
@@ -79,7 +67,10 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
     const retryable = isRetryableQRResponse(r);
     if (!hasDataUrl && !r.alreadyConnected && Date.now() - startedAtRef.current < MAX_POLL_MS) {
       setQr(null);
-      qrRetryRef.current = setTimeout(() => void fetchQrRef.current(), POLL_MS);
+      qrRetryRef.current = setTimeout(
+        () => void fetchQrRef.current(),
+        Math.max(POLL_MS, r.retryAfterMs || 0),
+      );
       return;
     }
     if (retryable && !r.error) {
@@ -104,26 +95,6 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
       if (qrRetryRef.current) clearTimeout(qrRetryRef.current);
     };
   }, [open, fetchQR]);
-
-  // Poll status every 3s for up to 120s while modal is open.
-  useEffect(() => {
-    if (!open) return;
-    const id = setInterval(async () => {
-      if (Date.now() - startedAtRef.current > MAX_POLL_MS) {
-        clearInterval(id);
-        return;
-      }
-      const st = await fetchStatus();
-      if (st === 'WORKING' || st === 'READY') {
-        clearInterval(id);
-        validQrLoadedRef.current = false;
-        setQr({ ok: true, alreadyConnected: true, status: st as SessionStatus });
-        onConnected?.();
-        onOpenChange(false);
-      }
-    }, POLL_MS);
-    return () => clearInterval(id);
-  }, [open, fetchStatus, onConnected, onOpenChange]);
 
   const handleProvision = async () => {
     setProvisioning(true);
