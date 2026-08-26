@@ -55,11 +55,12 @@ export function hasQrImage(r: Pick<QRResponse, 'dataUrl'>): boolean {
  * Shared, instance-agnostic QR preparation flow.
  *
  * Contract:
- * - Any response WITHOUT a `data:image/` payload is retryable while the window
- *   is open (qr_starting, STARTING, UNKNOWN, aborts, timeouts, 502, 524, …).
+ * - Opening the panel provisions immediately, polls every 3 seconds, and
+ *   provisions again every 12 seconds until an image is available or it closes.
+ * - Any response WITHOUT a `data:image/` payload is retryable while active
+ *   (qr_starting, STARTING, UNKNOWN, aborts, timeouts, 502, 524, …).
  * - Any response WITH a `data:image/` payload renders immediately and stops
  *   polling, regardless of ok/status/cached metadata.
- * - Only after the window expires is an error surfaced to the user.
  */
 export function useQrPreparation({
   userId,
@@ -118,7 +119,7 @@ export function useQrPreparation({
       try {
         result = await gatewayService.getQRCode(id);
       } catch (e) {
-        // Network/abort failures are retryable, never terminal mid-window.
+        // Network/abort failures are retryable, never terminal while active.
         result = {
           ok: false,
           userId: id,

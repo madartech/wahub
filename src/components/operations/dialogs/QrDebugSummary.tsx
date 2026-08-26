@@ -5,7 +5,7 @@ import { ChevronDown } from 'lucide-react';
 
 /**
  * Secondary, collapsed diagnostics. Never the primary user-facing state — the
- * QR flow only looks failed after the 120s preparation window expires.
+ * The self-healing QR flow keeps this hidden during normal operation.
  */
 export default function QrDebugSummary({ result }: { result: QrResultSummary | null }) {
   if (!result) return null;

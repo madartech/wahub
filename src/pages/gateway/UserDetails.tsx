@@ -671,7 +671,7 @@ export default function UserDetails() {
                   <div className="text-center py-8">
                     <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
                     <p className="text-sm text-destructive">
-                      {qr.error || 'QR was not ready after 120 seconds. Try Refresh QR.'}
+                      {qr.error || 'QR is not available. Try Refresh QR.'}
                     </p>
                   </div>
                 )}
