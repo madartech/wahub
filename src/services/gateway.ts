@@ -160,10 +160,10 @@ export const gatewayService = {
 
 
 
-  // WEBJS/Chromium can take up to two minutes to produce its first QR.
+  // WEBJS/Chromium can be slow, but each QR request may wait up to 90 seconds.
   async getQRCode(userId: string): Promise<QRResponse> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000);
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
 
     let res: Response;
     try {
@@ -185,7 +185,25 @@ export const gatewayService = {
     }
     clearTimeout(timeoutId);
 
-    const data = await res.json().catch(() => ({} as any));
+    const responseText = await res.text();
+    let data: any = {};
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      data = {};
+    }
+
+    // Log the gateway result before normalizing it for either QR UI.
+    console.info('qr-base64 response (raw JSON)', data);
+    console.info('qr-base64 response summary', {
+      httpStatus: res.status,
+      ok: data.ok,
+      status: data.status || data.session?.status,
+      error: data.error,
+      dataUrlPresent: Boolean(
+        data.dataUrl || data.qr?.dataUrl || data.data || data.base64 || typeof data.qr === 'string',
+      ),
+    });
 
 
     // Normalize both old (GOWS) and new (WEBJS) response shapes
@@ -202,7 +220,7 @@ export const gatewayService = {
     if (!res.ok || data.ok === false) {
       return {
         ok: false,
-        error: data.error || data.message || `HTTP ${res.status}`,
+        error: responseText || `HTTP ${res.status}`,
         status,
       };
     }

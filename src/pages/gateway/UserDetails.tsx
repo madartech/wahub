@@ -64,6 +64,7 @@ export default function UserDetails() {
   const qrRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const qrRetryTokenRef = useRef(0);
   const qrFlowActiveRef = useRef(false);
+  const validQrLoadedRef = useRef(false);
   const [qrWaitMsg, setQrWaitMsg] = useState<string | null>(null);
 
   // Send test message state
@@ -103,11 +104,9 @@ export default function UserDetails() {
       if (
         qrFlowActiveRef.current &&
         currentStatus === 'SCAN_QR_CODE' &&
-        nextStatus !== 'SCAN_QR_CODE' &&
         nextStatus !== 'WORKING' &&
         nextStatus !== 'READY' &&
-        nextStatus !== 'FAILED' &&
-        nextStatus !== 'STOPPED'
+        (validQrLoadedRef.current || (nextStatus !== 'FAILED' && nextStatus !== 'STOPPED'))
       ) {
         return currentStatus;
       }
@@ -221,12 +220,11 @@ export default function UserDetails() {
       }
 
       setIsProvisioning(false);
-      if (st === 'SCAN_QR_CODE') {
-        // Activate synchronously so an older in-flight /status request cannot
-        // overwrite SCAN_QR_CODE before React renders the QR panel.
-        qrFlowActiveRef.current = true;
-        await handleOpenQrModal();
-      }
+      // A successful provision response is sufficient to open the QR flow.
+      // /qr-base64, not the slower /status endpoint, decides QR visibility.
+      qrFlowActiveRef.current = true;
+      if (st === 'SCAN_QR_CODE') setSessionStatus('SCAN_QR_CODE');
+      await handleOpenQrModal();
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to provision user';
@@ -242,6 +240,7 @@ export default function UserDetails() {
     const status = await fetchStatus(userId);
     if (status === 'WORKING' || status === 'READY') {
       qrFlowActiveRef.current = false;
+      validQrLoadedRef.current = false;
       setShowQrModal(false);
       setQrDataUrl(null);
       toast({
@@ -251,7 +250,7 @@ export default function UserDetails() {
       return;
     }
 
-    if (status === 'FAILED' || status === 'STOPPED') {
+    if (!validQrLoadedRef.current && (status === 'FAILED' || status === 'STOPPED')) {
       qrFlowActiveRef.current = false;
       setShowQrModal(false);
       setQrDataUrl(null);
@@ -293,6 +292,9 @@ export default function UserDetails() {
       }
 
       if (qrResult.ok && qrResult.dataUrl) {
+        validQrLoadedRef.current = true;
+        setSessionStatus('SCAN_QR_CODE');
+        statusCache.set(userId, 'SCAN_QR_CODE');
         setQrDataUrl(qrResult.dataUrl);
         setQrError(null);
         setQrWaitMsg(null);
@@ -340,6 +342,7 @@ export default function UserDetails() {
     if (qrRetryRef.current) clearTimeout(qrRetryRef.current);
     if (qrPollingRef.current) clearTimeout(qrPollingRef.current);
     qrFlowActiveRef.current = true;
+    validQrLoadedRef.current = false;
     const token = ++qrRetryTokenRef.current;
     setIsLoadingQR(true);
     setQrError(null);
@@ -356,6 +359,7 @@ export default function UserDetails() {
 
   const handleCloseQrModal = () => {
     qrFlowActiveRef.current = false;
+    validQrLoadedRef.current = false;
     qrRetryTokenRef.current++;
     if (qrPollingRef.current) {
       clearTimeout(qrPollingRef.current);

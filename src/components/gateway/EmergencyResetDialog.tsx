@@ -44,6 +44,7 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
   
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollStartTimeRef = useRef<number>(0);
+  const validQrLoadedRef = useRef(false);
 
   const displayName = userName || userId;
 
@@ -64,6 +65,7 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
     setPhase('confirm');
     setStatusLogs([]);
     setQrDataUrl(null);
+    validQrLoadedRef.current = false;
     setErrorMessage(null);
     setProgress(0);
   }, [cleanup]);
@@ -91,6 +93,12 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
       const status = result.session?.status || 'UNKNOWN';
       addLog(`Status: ${status}`);
 
+      if (validQrLoadedRef.current && status !== 'WORKING' && status !== 'READY') {
+        setPhase('scan_qr');
+        pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
+        return;
+      }
+
       if (status === 'SCAN_QR_CODE') {
         cleanup();
         setPhase('scan_qr');
@@ -98,14 +106,16 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
         
         const qrResult = await gatewayService.getQRCode(userId);
         if (qrResult.ok && qrResult.dataUrl) {
+          validQrLoadedRef.current = true;
           setQrDataUrl(qrResult.dataUrl);
           addLog('✅ QR code displayed');
           pollStartTimeRef.current = Date.now();
           pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
         } else {
-          setPhase('failed');
-          setErrorMessage(qrResult.error || 'Failed to get QR code');
-          addLog(`❌ QR error: ${qrResult.error}`);
+          // A WEBJS QR may not be available on the first request. Keep this
+          // dialog alive and retry until the full reset window expires.
+          addLog(`QR not ready: ${qrResult.error || 'waiting'}`);
+          pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
         }
         return;
       }
@@ -140,6 +150,7 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
     setPhase('resetting');
     setStatusLogs([]);
     setQrDataUrl(null);
+    validQrLoadedRef.current = false;
     setErrorMessage(null);
     setProgress(0);
     addLog('🔄 Starting reset...');
