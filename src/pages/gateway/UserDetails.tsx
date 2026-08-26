@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
-import { GatewayUser, getConnectionState, SessionStatus, UserConnectionState } from '@/types/gateway';
+import { GatewayUser, getConnectionState, isRetryableQRResponse, SessionStatus, UserConnectionState } from '@/types/gateway';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Copy, Loader2, QrCode, RefreshCw, CheckCircle, AlertCircle, Eye, EyeOff, Send, Phone, Key, Unplug, RotateCcw, Smartphone } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -106,17 +106,10 @@ export default function UserDetails() {
     const nextStatus = result.ok && result.session ? result.session.status : 'UNKNOWN';
 
     setSessionStatus((currentStatus) => {
-      // WEBJS can temporarily report UNKNOWN/STARTING while its status lookup
-      // times out. Once the QR flow has reached SCAN_QR_CODE, only a real
-      // terminal state may move the visible UI away from that state.
-      if (
-        qrFlowActiveRef.current &&
-        currentStatus === 'SCAN_QR_CODE' &&
-        nextStatus !== 'WORKING' &&
-        nextStatus !== 'READY' &&
-        (validQrLoadedRef.current || (nextStatus !== 'FAILED' && nextStatus !== 'STOPPED'))
-      ) {
-        return currentStatus;
+      // While /qr-base64 is waiting or displayed, /status may only confirm a
+      // connection. It must not replace the QR flow with a transient state.
+      if (qrFlowActiveRef.current && nextStatus !== 'WORKING' && nextStatus !== 'READY') {
+        return validQrLoadedRef.current ? 'SCAN_QR_CODE' : currentStatus;
       }
       return nextStatus;
     });
@@ -258,15 +251,8 @@ export default function UserDetails() {
       return;
     }
 
-    if (!validQrLoadedRef.current && (status === 'FAILED' || status === 'STOPPED')) {
-      qrFlowActiveRef.current = false;
-      setShowQrModal(false);
-      setQrDataUrl(null);
-      return;
-    }
-
-    // SCAN_QR_CODE, UNKNOWN, and transient STARTING are non-fatal while the
-    // QR is displayed. Keep the panel open and preserve the previous UI.
+    // /status never closes a live QR flow. /qr-base64 owns waiting and image
+    // visibility until it expires or status confirms a connection.
     qrPollingRef.current = setTimeout(() => pollQrStatus(userId), POLL_INTERVAL);
   }, [fetchStatus, toast]);
 
@@ -323,7 +309,8 @@ export default function UserDetails() {
         return;
       }
 
-      if (Date.now() < deadline) {
+      const retryable = isRetryableQRResponse(qrResult);
+      if (!hasDataUrl && !qrResult.alreadyConnected && Date.now() < deadline) {
         setQrWaitMsg('Waiting for QR…');
         qrRetryRef.current = setTimeout(
           () => loadQrWithRetry(userId, deadline, token),
@@ -332,9 +319,13 @@ export default function UserDetails() {
         return;
       }
 
+      if (retryable) {
+        setQrError('QR was not ready after 120 seconds. Try Refresh QR.');
+      }
+
       setIsLoadingQR(false);
       setQrWaitMsg(null);
-      setQrError(qrResult.error || 'QR was not ready after 120 seconds. Try Refresh QR.');
+      setQrError(current => current || qrResult.error || 'QR was not ready after 120 seconds. Try Refresh QR.');
     } catch (err) {
       if (token !== qrRetryTokenRef.current) return;
       const isNetwork = err instanceof TypeError || /failed to fetch/i.test(String(err));

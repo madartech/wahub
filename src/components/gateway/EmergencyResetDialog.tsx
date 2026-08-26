@@ -19,10 +19,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { gatewayService } from '@/services/gateway';
-import { SessionStatus } from '@/types/gateway';
+import { isRetryableQRResponse, SessionStatus } from '@/types/gateway';
 import { AlertTriangle, Loader2, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 
-const POLL_INTERVAL = 2000; // 2 seconds
+const POLL_INTERVAL = 3000; // retry /qr-base64 every 3 seconds
 const MAX_POLL_TIME = 120000; // 120 seconds
 
 interface EmergencyResetDialogProps {
@@ -98,49 +98,53 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
     }
 
     try {
-      const result = await gatewayService.getUserStatus(userId);
-      const status = result.session?.status || 'UNKNOWN';
-      addLog(`Status: ${status}`);
-
-      if (validQrLoadedRef.current && status !== 'WORKING' && status !== 'READY') {
+      if (validQrLoadedRef.current) {
+        const result = await gatewayService.getUserStatus(userId);
+        const status = result.session?.status || 'UNKNOWN';
+        addLog(`Status: ${status}`);
+        if (status === 'WORKING' || status === 'READY') {
+          cleanup();
+          setPhase('connected');
+          setQrDataUrl(null);
+          addLog('✅ WhatsApp connected!');
+          onSuccess?.();
+          return;
+        }
+        // Once displayed, only a confirmed connection may replace the QR.
         setPhase('scan_qr');
         pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
         return;
       }
 
-      // Ask the QR endpoint directly on every pass. Its dataUrl is the source
-      // of truth and must not be blocked by a stale/UNKNOWN status response.
-      if (status !== 'WORKING' && status !== 'READY') {
-        const qrResult = await gatewayService.getQRCode(userId);
-        console.log('[QR_BASE64_RESPONSE]', qrResult);
-        const hasDataUrl = typeof qrResult.dataUrl === 'string' && qrResult.dataUrl.startsWith('data:image/');
-        setLastQrResult({ ok: qrResult.ok, status: qrResult.status, error: qrResult.error, hasDataUrl });
-        if (hasDataUrl) {
-          validQrLoadedRef.current = true;
-          setQrDataUrl(qrResult.dataUrl ?? null);
-          setPhase('scan_qr');
-          addLog('✅ QR code displayed');
-          pollStartTimeRef.current = Date.now();
-          pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
-          return;
-        }
-        addLog(`QR not ready: ${qrResult.error || 'waiting'}`);
+      // While waiting, call /qr-base64 directly on every 3-second cycle. A
+      // slower /status request must not delay or replace this retry flow.
+      const qrResult = await gatewayService.getQRCode(userId);
+      console.log('[QR_BASE64_RESPONSE]', qrResult);
+      const hasDataUrl = typeof qrResult.dataUrl === 'string' && qrResult.dataUrl.startsWith('data:image/');
+      setLastQrResult({ ok: qrResult.ok, status: qrResult.status, error: qrResult.error, hasDataUrl });
+      if (hasDataUrl) {
+        validQrLoadedRef.current = true;
+        setQrDataUrl(qrResult.dataUrl ?? null);
+        setPhase('scan_qr');
+        addLog('✅ QR code displayed');
+        pollStartTimeRef.current = Date.now();
+        pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
+        return;
       }
+      if (isRetryableQRResponse(qrResult)) {
+        setPhase('polling');
+        addLog('QR is starting; retrying...');
+        pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
+        return;
+      }
+      addLog(`QR not ready: ${qrResult.error || 'waiting'}`);
 
-      if (status === 'WORKING' || status === 'READY') {
+      if (qrResult.alreadyConnected || qrResult.status === 'WORKING' || qrResult.status === 'READY') {
         cleanup();
         setPhase('connected');
         setQrDataUrl(null);
         addLog('✅ WhatsApp connected!');
         onSuccess?.();
-        return;
-      }
-
-      if (status === 'FAILED') {
-        cleanup();
-        setPhase('failed');
-        setErrorMessage('Session failed');
-        addLog('❌ Session failed');
         return;
       }
 
@@ -240,7 +244,7 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
           {isRunning && (
             <>
               <div className="flex items-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                {!qrDataUrl && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
                 <span className="font-medium">
                   {phase === 'resetting' && 'Resetting...'}
                   {phase === 'polling' && 'Waiting for QR ready...'}
