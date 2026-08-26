@@ -86,7 +86,7 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
     } else if (r.status === 'SCAN_QR_CODE' || r.status === 'WORKING' || r.status === 'READY' || r.status === 'FAILED' || r.status === 'STOPPED') {
       setStatus(r.status);
     }
-    if (!r.ok && Date.now() - startedAtRef.current < MAX_POLL_MS) {
+    if (!hasDataUrl && !r.alreadyConnected && Date.now() - startedAtRef.current < MAX_POLL_MS) {
       setQr(null);
       qrRetryRef.current = setTimeout(() => void fetchQrRef.current(), POLL_MS);
       return;

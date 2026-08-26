@@ -108,11 +108,9 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
         return;
       }
 
-      if (status === 'SCAN_QR_CODE') {
-        cleanup();
-        setPhase('scan_qr');
-        addLog('📱 Ready for QR scan - fetching QR code...');
-        
+      // Ask the QR endpoint directly on every pass. Its dataUrl is the source
+      // of truth and must not be blocked by a stale/UNKNOWN status response.
+      if (status !== 'WORKING' && status !== 'READY') {
         const qrResult = await gatewayService.getQRCode(userId);
         console.log('[QR_BASE64_RESPONSE]', qrResult);
         const hasDataUrl = typeof qrResult.dataUrl === 'string' && qrResult.dataUrl.startsWith('data:image/');
@@ -124,13 +122,9 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
           addLog('✅ QR code displayed');
           pollStartTimeRef.current = Date.now();
           pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
-        } else {
-          // A WEBJS QR may not be available on the first request. Keep this
-          // dialog alive and retry until the full reset window expires.
-          addLog(`QR not ready: ${qrResult.error || 'waiting'}`);
-          pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
+          return;
         }
-        return;
+        addLog(`QR not ready: ${qrResult.error || 'waiting'}`);
       }
 
       if (status === 'WORKING' || status === 'READY') {
