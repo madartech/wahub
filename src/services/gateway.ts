@@ -151,8 +151,7 @@ export const gatewayService = {
       if (error instanceof TypeError) {
         // Network-level failure: DNS, CORS, TLS, offline
         throw new Error(
-          `Network/CORS failure reaching the gateway (TypeError: ${error.message}) — POST ${url}. ` +
-          'Check the gateway is reachable and returns CORS headers for this origin.',
+          'Network/CORS error reaching gateway.walinkme.com. Please refresh the app.',
         );
       }
       throw error;
