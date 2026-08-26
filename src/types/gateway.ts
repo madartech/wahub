@@ -94,21 +94,26 @@ export interface QRResponse {
   retryAfterMs?: number;
   alreadyConnected?: boolean;
   status?: SessionStatus;
+  httpStatus?: number;
   error?: string;
   detail?: string;
   body?: string;
 }
 
+/**
+ * Any QR response that does not carry a renderable image is retryable while the
+ * preparation window is open: startup states, unknown states, aborts, timeouts
+ * and gateway errors (502/504/524) are all transient for a booting container.
+ */
 export function isRetryableQRResponse(response: QRResponse): boolean {
-  const diagnostic = `${response.error || ''} ${response.detail || ''} ${response.body || ''}`;
-  return (
-    response.error === 'qr_starting' ||
-    response.status === 'STARTING' ||
-    response.status === 'UNKNOWN' ||
-    response.status === 'SCAN_QR_CODE' ||
-    /this operation was aborted/i.test(diagnostic)
-  );
+  const hasImage = typeof response.dataUrl === 'string' && response.dataUrl.startsWith('data:image/');
+  if (hasImage) return false;
+  if (response.alreadyConnected || response.status === 'WORKING' || response.status === 'READY') {
+    return false;
+  }
+  return true;
 }
+
 
 export interface HealthResponse {
   ok: boolean;
