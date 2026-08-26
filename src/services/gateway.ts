@@ -100,7 +100,7 @@ export const gatewayService = {
 
   // Provision a user (create WAHA instance) — can take ~15-30s, allow 60s
   async provisionUser(userId: string): Promise<ProvisionResponse> {
-    const url = `${GATEWAY_BASE_URL}/admin/users/${userId}/provision`;
+    const url = `${GATEWAY_BASE_URL}/admin/users/${userId}/provision?_t=${Date.now()}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
 
@@ -151,8 +151,7 @@ export const gatewayService = {
       if (error instanceof TypeError) {
         // Network-level failure: DNS, CORS, TLS, offline
         throw new Error(
-          `Network/CORS failure reaching the gateway (TypeError: ${error.message}) — POST ${url}. ` +
-          'Check the gateway is reachable and returns CORS headers for this origin.',
+          'Network/CORS error reaching gateway.walinkme.com. Please refresh the app.',
         );
       }
       throw error;
@@ -168,7 +167,7 @@ export const gatewayService = {
 
     let res: Response;
     try {
-      res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/qr-base64`, {
+      res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/qr-base64?_t=${Date.now()}`, {
         method: 'GET',
         headers: {
           'X-Admin-Token': ADMIN_TOKEN,
@@ -181,7 +180,7 @@ export const gatewayService = {
         ok: false,
         error: e instanceof DOMException && e.name === 'AbortError'
           ? 'QR request timed out'
-          : e instanceof Error ? e.message : 'network_error',
+          : e instanceof TypeError ? 'Network/CORS error reaching gateway.walinkme.com. Please refresh the app.' : e instanceof Error ? e.message : 'network_error',
       };
     }
     clearTimeout(timeoutId);
@@ -226,7 +225,7 @@ export const gatewayService = {
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     
     try {
-      const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/status`, {
+      const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/status?_t=${Date.now()}`, {
         method: 'GET',
         headers: { 
           'X-Admin-Token': ADMIN_TOKEN,

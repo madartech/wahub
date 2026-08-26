@@ -20,6 +20,8 @@ import { statusCache } from '@/services/statusCache';
 const POLL_INTERVAL = 2000; // 2 seconds
 const PROVISION_POLL_INTERVAL = 3000; // 3 seconds (post-provision status polling)
 const MAX_POLL_TIME = 90000; // 90 seconds
+const QR_RETRY_INTERVAL = 3000; // retry /qr-base64 every 3s
+const QR_RETRY_MAX_MS = 90000; // for up to 90s
 
 
 const DISPLAY_NAMES_KEY = 'gateway_user_display_names';
@@ -63,6 +65,9 @@ export default function UserDetails() {
   const [qrError, setQrError] = useState<string | null>(null);
   const [showQrModal, setShowQrModal] = useState(false);
   const qrPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const qrRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const qrRetryTokenRef = useRef(0);
+  const [qrWaitMsg, setQrWaitMsg] = useState<string | null>(null);
 
   // Send test message state
   const [testPhone, setTestPhone] = useState('');
@@ -86,6 +91,7 @@ export default function UserDetails() {
     return () => {
       if (pollingRef.current) clearTimeout(pollingRef.current);
       if (qrPollingRef.current) clearTimeout(qrPollingRef.current);
+      if (qrRetryRef.current) clearTimeout(qrRetryRef.current);
     };
   }, []);
 
@@ -227,25 +233,15 @@ export default function UserDetails() {
         statusCache.set(id, st);
       }
 
-      // Backend already reports the QR is ready — show it immediately.
-      if (st === 'SCAN_QR_CODE') {
-        setIsProvisioning(false);
-        await handleOpenQrModal();
-        return;
-      }
-
       if (st === 'WORKING' || st === 'READY') {
         setIsProvisioning(false);
         toast({ title: 'Connected', description: 'WhatsApp is already connected.' });
         return;
       }
 
-      // Otherwise poll status every 3s for up to 90s
-      pollStartTimeRef.current = Date.now();
-      pollingRef.current = setTimeout(
-        () => pollStatus(id, ['SCAN_QR_CODE', 'WORKING', 'READY']),
-        PROVISION_POLL_INTERVAL
-      );
+      // Provision succeeded — open the QR immediately, never wait for /status.
+      setIsProvisioning(false);
+      await handleOpenQrModal();
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to provision user';
@@ -280,101 +276,102 @@ export default function UserDetails() {
     }
   }, [fetchStatus, toast]);
 
-  const handleOpenQrModal = async () => {
-    if (!id) return;
-
-    setShowQrModal(true);
-    setIsLoadingQR(true);
-    setQrError(null);
-    setQrDataUrl(null);
-
+  // Fetch the QR, retrying every 3s for up to 90s while it isn't available yet.
+  const loadQrWithRetry = async (userId: string, deadline: number, token: number) => {
     try {
-      const qrResult = await gatewayService.getQRCode(id);
-      
+      const qrResult = await gatewayService.getQRCode(userId);
+      if (token !== qrRetryTokenRef.current) return;
+
       if (qrResult.alreadyConnected) {
-        // Already connected, refresh status and close
-        await fetchStatus(id);
+        setIsLoadingQR(false);
+        setQrWaitMsg(null);
         setShowQrModal(false);
-        toast({
-          title: 'Already Connected',
-          description: 'WhatsApp is already connected.',
-        });
+        toast({ title: 'Already Connected', description: 'WhatsApp is already connected.' });
+        fetchStatus(userId);
         return;
       }
 
-      if (!qrResult.ok || !qrResult.dataUrl) {
-        setQrError(qrResult.error || 'QR not available');
+      if (qrResult.ok && qrResult.dataUrl) {
+        setQrDataUrl(qrResult.dataUrl);
+        setQrError(null);
+        setQrWaitMsg(null);
+        setIsLoadingQR(false);
+        // Only now start /status polling to detect the scan
+        if (qrPollingRef.current) clearTimeout(qrPollingRef.current);
+        qrPollingRef.current = setTimeout(() => pollQrStatus(userId), POLL_INTERVAL);
         return;
       }
 
-      setQrDataUrl(qrResult.dataUrl);
+      if (Date.now() < deadline) {
+        setQrWaitMsg('Waiting for QR…');
+        qrRetryRef.current = setTimeout(
+          () => loadQrWithRetry(userId, deadline, token),
+          QR_RETRY_INTERVAL,
+        );
+        return;
+      }
 
-      // Start polling for connection
-      qrPollingRef.current = setTimeout(() => pollQrStatus(id), POLL_INTERVAL);
-
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to get QR code';
-      setQrError(errorMessage);
-    } finally {
       setIsLoadingQR(false);
+      setQrWaitMsg(null);
+      setQrError(qrResult.error || 'QR not available. Try Refresh QR.');
+    } catch (err) {
+      if (token !== qrRetryTokenRef.current) return;
+      const isNetwork = err instanceof TypeError || /failed to fetch/i.test(String(err));
+      if (Date.now() < deadline) {
+        setQrWaitMsg(isNetwork ? 'Reconnecting to gateway…' : 'Waiting for QR…');
+        qrRetryRef.current = setTimeout(
+          () => loadQrWithRetry(userId, deadline, token),
+          QR_RETRY_INTERVAL,
+        );
+        return;
+      }
+      setIsLoadingQR(false);
+      setQrWaitMsg(null);
+      setQrError(
+        isNetwork
+          ? 'Network/CORS error reaching gateway.walinkme.com. Please refresh the app.'
+          : err instanceof Error ? err.message : 'Failed to get QR code',
+      );
     }
   };
 
+  const startQrLoad = (userId: string) => {
+    if (qrRetryRef.current) clearTimeout(qrRetryRef.current);
+    if (qrPollingRef.current) clearTimeout(qrPollingRef.current);
+    const token = ++qrRetryTokenRef.current;
+    setIsLoadingQR(true);
+    setQrError(null);
+    setQrWaitMsg('Waiting for QR…');
+    setQrDataUrl(null);
+    loadQrWithRetry(userId, Date.now() + QR_RETRY_MAX_MS, token);
+  };
+
+  const handleOpenQrModal = async () => {
+    if (!id) return;
+    setShowQrModal(true);
+    startQrLoad(id);
+  };
+
   const handleCloseQrModal = () => {
+    qrRetryTokenRef.current++;
     if (qrPollingRef.current) {
       clearTimeout(qrPollingRef.current);
       qrPollingRef.current = null;
+    }
+    if (qrRetryRef.current) {
+      clearTimeout(qrRetryRef.current);
+      qrRetryRef.current = null;
     }
     setShowQrModal(false);
     setQrDataUrl(null);
     setQrError(null);
+    setQrWaitMsg(null);
+    setIsLoadingQR(false);
   };
 
   const handleRefreshQR = async () => {
     if (!id) return;
-
-    // Clear existing polling
-    if (qrPollingRef.current) {
-      clearTimeout(qrPollingRef.current);
-      qrPollingRef.current = null;
-    }
-
-    setIsLoadingQR(true);
-    setQrError(null);
-
-    try {
-      const qrResult = await gatewayService.getQRCode(id);
-      
-      if (qrResult.alreadyConnected) {
-        await fetchStatus(id);
-        setShowQrModal(false);
-        toast({
-          title: 'Already Connected',
-          description: 'WhatsApp is already connected.',
-        });
-        return;
-      }
-
-      if (!qrResult.ok || !qrResult.dataUrl) {
-        setQrError(qrResult.error || 'QR not available');
-        return;
-      }
-
-      setQrDataUrl(qrResult.dataUrl);
-
-      // Resume polling
-      qrPollingRef.current = setTimeout(() => pollQrStatus(id), POLL_INTERVAL);
-
-      toast({
-        title: 'QR Refreshed',
-        description: 'New QR code generated',
-      });
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to refresh QR';
-      setQrError(errorMessage);
-    } finally {
-      setIsLoadingQR(false);
-    }
+    startQrLoad(id);
   };
 
   const handleRefreshStatus = async () => {
@@ -817,8 +814,9 @@ export default function UserDetails() {
             {showQrModal && (
               <div className="flex flex-col items-center gap-4 p-4 border rounded-lg bg-muted/30 max-h-[80vh] overflow-y-auto">
                 {isLoadingQR ? (
-                  <div className="flex items-center justify-center h-48 w-48 sm:h-64 sm:w-64">
+                  <div className="flex flex-col items-center justify-center gap-3 h-48 w-48 sm:h-64 sm:w-64">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">{qrWaitMsg || 'Loading…'}</p>
                   </div>
                 ) : qrError ? (
                   <div className="text-center py-8">
