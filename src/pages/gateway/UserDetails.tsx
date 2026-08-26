@@ -274,101 +274,102 @@ export default function UserDetails() {
     }
   }, [fetchStatus, toast]);
 
-  const handleOpenQrModal = async () => {
-    if (!id) return;
-
-    setShowQrModal(true);
-    setIsLoadingQR(true);
-    setQrError(null);
-    setQrDataUrl(null);
-
+  // Fetch the QR, retrying every 3s for up to 90s while it isn't available yet.
+  const loadQrWithRetry = async (userId: string, deadline: number, token: number) => {
     try {
-      const qrResult = await gatewayService.getQRCode(id);
-      
+      const qrResult = await gatewayService.getQRCode(userId);
+      if (token !== qrRetryTokenRef.current) return;
+
       if (qrResult.alreadyConnected) {
-        // Already connected, refresh status and close
-        await fetchStatus(id);
+        setIsLoadingQR(false);
+        setQrWaitMsg(null);
         setShowQrModal(false);
-        toast({
-          title: 'Already Connected',
-          description: 'WhatsApp is already connected.',
-        });
+        toast({ title: 'Already Connected', description: 'WhatsApp is already connected.' });
+        fetchStatus(userId);
         return;
       }
 
-      if (!qrResult.ok || !qrResult.dataUrl) {
-        setQrError(qrResult.error || 'QR not available');
+      if (qrResult.ok && qrResult.dataUrl) {
+        setQrDataUrl(qrResult.dataUrl);
+        setQrError(null);
+        setQrWaitMsg(null);
+        setIsLoadingQR(false);
+        // Only now start /status polling to detect the scan
+        if (qrPollingRef.current) clearTimeout(qrPollingRef.current);
+        qrPollingRef.current = setTimeout(() => pollQrStatus(userId), POLL_INTERVAL);
         return;
       }
 
-      setQrDataUrl(qrResult.dataUrl);
+      if (Date.now() < deadline) {
+        setQrWaitMsg('Waiting for QR…');
+        qrRetryRef.current = setTimeout(
+          () => loadQrWithRetry(userId, deadline, token),
+          QR_RETRY_INTERVAL,
+        );
+        return;
+      }
 
-      // Start polling for connection
-      qrPollingRef.current = setTimeout(() => pollQrStatus(id), POLL_INTERVAL);
-
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to get QR code';
-      setQrError(errorMessage);
-    } finally {
       setIsLoadingQR(false);
+      setQrWaitMsg(null);
+      setQrError(qrResult.error || 'QR not available. Try Refresh QR.');
+    } catch (err) {
+      if (token !== qrRetryTokenRef.current) return;
+      const isNetwork = err instanceof TypeError || /failed to fetch/i.test(String(err));
+      if (Date.now() < deadline) {
+        setQrWaitMsg(isNetwork ? 'Reconnecting to gateway…' : 'Waiting for QR…');
+        qrRetryRef.current = setTimeout(
+          () => loadQrWithRetry(userId, deadline, token),
+          QR_RETRY_INTERVAL,
+        );
+        return;
+      }
+      setIsLoadingQR(false);
+      setQrWaitMsg(null);
+      setQrError(
+        isNetwork
+          ? 'Network/CORS error reaching gateway.walinkme.com. Please refresh the app.'
+          : err instanceof Error ? err.message : 'Failed to get QR code',
+      );
     }
   };
 
+  const startQrLoad = (userId: string) => {
+    if (qrRetryRef.current) clearTimeout(qrRetryRef.current);
+    if (qrPollingRef.current) clearTimeout(qrPollingRef.current);
+    const token = ++qrRetryTokenRef.current;
+    setIsLoadingQR(true);
+    setQrError(null);
+    setQrWaitMsg('Waiting for QR…');
+    setQrDataUrl(null);
+    loadQrWithRetry(userId, Date.now() + QR_RETRY_MAX_MS, token);
+  };
+
+  const handleOpenQrModal = async () => {
+    if (!id) return;
+    setShowQrModal(true);
+    startQrLoad(id);
+  };
+
   const handleCloseQrModal = () => {
+    qrRetryTokenRef.current++;
     if (qrPollingRef.current) {
       clearTimeout(qrPollingRef.current);
       qrPollingRef.current = null;
+    }
+    if (qrRetryRef.current) {
+      clearTimeout(qrRetryRef.current);
+      qrRetryRef.current = null;
     }
     setShowQrModal(false);
     setQrDataUrl(null);
     setQrError(null);
+    setQrWaitMsg(null);
+    setIsLoadingQR(false);
   };
 
   const handleRefreshQR = async () => {
     if (!id) return;
-
-    // Clear existing polling
-    if (qrPollingRef.current) {
-      clearTimeout(qrPollingRef.current);
-      qrPollingRef.current = null;
-    }
-
-    setIsLoadingQR(true);
-    setQrError(null);
-
-    try {
-      const qrResult = await gatewayService.getQRCode(id);
-      
-      if (qrResult.alreadyConnected) {
-        await fetchStatus(id);
-        setShowQrModal(false);
-        toast({
-          title: 'Already Connected',
-          description: 'WhatsApp is already connected.',
-        });
-        return;
-      }
-
-      if (!qrResult.ok || !qrResult.dataUrl) {
-        setQrError(qrResult.error || 'QR not available');
-        return;
-      }
-
-      setQrDataUrl(qrResult.dataUrl);
-
-      // Resume polling
-      qrPollingRef.current = setTimeout(() => pollQrStatus(id), POLL_INTERVAL);
-
-      toast({
-        title: 'QR Refreshed',
-        description: 'New QR code generated',
-      });
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to refresh QR';
-      setQrError(errorMessage);
-    } finally {
-      setIsLoadingQR(false);
-    }
+    startQrLoad(id);
   };
 
   const handleRefreshStatus = async () => {
