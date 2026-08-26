@@ -93,6 +93,19 @@ export interface QRResponse {
   alreadyConnected?: boolean;
   status?: SessionStatus;
   error?: string;
+  detail?: string;
+  body?: string;
+}
+
+export function isRetryableQRResponse(response: QRResponse): boolean {
+  const diagnostic = `${response.error || ''} ${response.detail || ''} ${response.body || ''}`;
+  return (
+    response.error === 'qr_starting' ||
+    response.status === 'STARTING' ||
+    response.status === 'UNKNOWN' ||
+    response.status === 'SCAN_QR_CODE' ||
+    /this operation was aborted/i.test(diagnostic)
+  );
 }
 
 export interface HealthResponse {

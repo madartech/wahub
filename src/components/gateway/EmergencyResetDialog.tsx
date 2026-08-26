@@ -19,10 +19,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { gatewayService } from '@/services/gateway';
-import { SessionStatus } from '@/types/gateway';
+import { isRetryableQRResponse, SessionStatus } from '@/types/gateway';
 import { AlertTriangle, Loader2, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 
-const POLL_INTERVAL = 2000; // 2 seconds
+const POLL_INTERVAL = 3000; // retry /qr-base64 every 3 seconds
 const MAX_POLL_TIME = 120000; // 120 seconds
 
 interface EmergencyResetDialogProps {
@@ -102,12 +102,6 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
       const status = result.session?.status || 'UNKNOWN';
       addLog(`Status: ${status}`);
 
-      if (validQrLoadedRef.current && status !== 'WORKING' && status !== 'READY') {
-        setPhase('scan_qr');
-        pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
-        return;
-      }
-
       // Ask the QR endpoint directly on every pass. Its dataUrl is the source
       // of truth and must not be blocked by a stale/UNKNOWN status response.
       if (status !== 'WORKING' && status !== 'READY') {
@@ -121,6 +115,12 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
           setPhase('scan_qr');
           addLog('✅ QR code displayed');
           pollStartTimeRef.current = Date.now();
+          pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
+          return;
+        }
+        if (isRetryableQRResponse(qrResult)) {
+          setPhase('polling');
+          addLog('QR is starting; retrying...');
           pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
           return;
         }
@@ -240,7 +240,7 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
           {isRunning && (
             <>
               <div className="flex items-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                {!qrDataUrl && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
                 <span className="font-medium">
                   {phase === 'resetting' && 'Resetting...'}
                   {phase === 'polling' && 'Waiting for QR ready...'}

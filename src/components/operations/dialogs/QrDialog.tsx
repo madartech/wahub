@@ -5,7 +5,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { RefreshCw, QrCode, CheckCircle, Power, AlertTriangle } from 'lucide-react';
 import { gatewayService } from '@/services/gateway';
-import { QRResponse, SessionStatus } from '@/types/gateway';
+import { isRetryableQRResponse, QRResponse, SessionStatus } from '@/types/gateway';
 import { toast } from '@/hooks/use-toast';
 
 const POLL_MS = 3000;
@@ -42,23 +42,13 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
     const s = await gatewayService.getUserStatus(userId);
     const st = (s.session?.status || 'UNKNOWN') as SessionStatus | 'UNKNOWN';
     setStatus((current) => {
-      if (validQrLoadedRef.current && st !== 'WORKING' && st !== 'READY') {
-        return 'SCAN_QR_CODE';
-      }
-      if (
-        current === 'SCAN_QR_CODE' &&
-        st !== 'SCAN_QR_CODE' &&
-        st !== 'WORKING' &&
-        st !== 'READY' &&
-        st !== 'FAILED' &&
-        st !== 'STOPPED'
-      ) {
-        return current;
+      if (st !== 'WORKING' && st !== 'READY' && (loading || validQrLoadedRef.current)) {
+        return validQrLoadedRef.current ? 'SCAN_QR_CODE' : current;
       }
       return st;
     });
     return st;
-  }, [userId]);
+  }, [loading, userId]);
 
   const fetchQR = useCallback(async (restartWindow = false) => {
     if (restartWindow) {
@@ -83,10 +73,11 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
       setLoading(false);
       setStatus('SCAN_QR_CODE');
       return;
-    } else if (r.status === 'SCAN_QR_CODE' || r.status === 'WORKING' || r.status === 'READY' || r.status === 'FAILED' || r.status === 'STOPPED') {
+    } else if (r.status === 'WORKING' || r.status === 'READY') {
       setStatus(r.status);
     }
-    if (!hasDataUrl && !r.alreadyConnected && Date.now() - startedAtRef.current < MAX_POLL_MS) {
+    const retryable = isRetryableQRResponse(r);
+    if (!r.alreadyConnected && (retryable || !r.ok) && Date.now() - startedAtRef.current < MAX_POLL_MS) {
       setQr(null);
       qrRetryRef.current = setTimeout(() => void fetchQrRef.current(), POLL_MS);
       return;
@@ -163,7 +154,12 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
           <DialogDescription>WhatsApp → Linked Devices → Link a device</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col items-center gap-3">
-          {loading && !qr?.dataUrl && <p className="text-sm text-muted-foreground">Waiting for QR…</p>}
+          {loading && !qr?.dataUrl && (
+            <div className="flex flex-col items-center gap-2">
+              <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Waiting for QR…</p>
+            </div>
+          )}
 
           {!loading && connected && (
             <div className="flex items-center gap-2 text-success">

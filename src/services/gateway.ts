@@ -160,10 +160,11 @@ export const gatewayService = {
 
 
 
-  // WEBJS/Chromium can be slow, but each QR request may wait up to 120 seconds.
+  // WEBJS/Chromium can be slow. Keep each request bounded so the UI can make
+  // fresh /qr-base64 attempts every 3 seconds after retryable JSON responses.
   async getQRCode(userId: string): Promise<QRResponse> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000);
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     let res: Response;
     try {
@@ -208,6 +209,8 @@ export const gatewayService = {
 
     // Normalize both old (GOWS) and new (WEBJS) response shapes
     const status = (data.status || data.session?.status) as SessionStatus | undefined;
+    const detail = typeof data.detail === 'string' ? data.detail : undefined;
+    const body = typeof data.body === 'string' ? data.body : undefined;
     const dataUrl: string | undefined =
       data.dataUrl ||
       data.qr?.dataUrl ||
@@ -225,14 +228,18 @@ export const gatewayService = {
         dataUrl,
         status,
         error: typeof data.error === 'string' ? data.error : undefined,
+        detail,
+        body,
       };
     }
 
     if (!res.ok || data.ok === false) {
       return {
         ok: false,
-        error: responseText || `HTTP ${res.status}`,
+        error: typeof data.error === 'string' ? data.error : responseText || `HTTP ${res.status}`,
         status,
+        detail,
+        body,
       };
     }
 
@@ -241,7 +248,13 @@ export const gatewayService = {
     }
 
     if (!dataUrl) {
-      return { ok: false, error: data.error || data.message || 'QR not available yet', status };
+      return {
+        ok: false,
+        error: data.error || data.message || 'QR not available yet',
+        status,
+        detail,
+        body,
+      };
     }
 
     return { ok: true, dataUrl, status };
