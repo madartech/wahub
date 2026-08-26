@@ -27,6 +27,7 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
   const startedAtRef = useRef<number>(0);
   const qrRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const qrRequestTokenRef = useRef(0);
+  const fetchQrRef = useRef<(restartWindow?: boolean) => Promise<void>>(async () => undefined);
 
   const fetchStatus = useCallback(async () => {
     const s = await gatewayService.getUserStatus(userId);
@@ -63,12 +64,13 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
     }
     if (!r.ok && Date.now() - startedAtRef.current < MAX_POLL_MS) {
       setQr(null);
-      qrRetryRef.current = setTimeout(() => void fetchQR(), POLL_MS);
+      qrRetryRef.current = setTimeout(() => void fetchQrRef.current(), POLL_MS);
       return;
     }
     setQr(r);
     setLoading(false);
   }, [userId]);
+  fetchQrRef.current = fetchQR;
 
   useEffect(() => {
     if (!open) return;
