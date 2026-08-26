@@ -119,28 +119,26 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
 
       // Ask the QR endpoint directly on every pass. Its dataUrl is the source
       // of truth and must not be blocked by a stale/UNKNOWN status response.
-      if (status !== 'WORKING' && status !== 'READY') {
-        const qrResult = await gatewayService.getQRCode(userId);
-        console.log('[QR_BASE64_RESPONSE]', qrResult);
-        const hasDataUrl = typeof qrResult.dataUrl === 'string' && qrResult.dataUrl.startsWith('data:image/');
-        setLastQrResult({ ok: qrResult.ok, status: qrResult.status, error: qrResult.error, hasDataUrl });
-        if (hasDataUrl) {
-          validQrLoadedRef.current = true;
-          setQrDataUrl(qrResult.dataUrl ?? null);
-          setPhase('scan_qr');
-          addLog('✅ QR code displayed');
-          pollStartTimeRef.current = Date.now();
-          pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
-          return;
-        }
-        if (isRetryableQRResponse(qrResult)) {
-          setPhase('polling');
-          addLog('QR is starting; retrying...');
-          pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
-          return;
-        }
-        addLog(`QR not ready: ${qrResult.error || 'waiting'}`);
+      const qrResult = await gatewayService.getQRCode(userId);
+      console.log('[QR_BASE64_RESPONSE]', qrResult);
+      const hasDataUrl = typeof qrResult.dataUrl === 'string' && qrResult.dataUrl.startsWith('data:image/');
+      setLastQrResult({ ok: qrResult.ok, status: qrResult.status, error: qrResult.error, hasDataUrl });
+      if (hasDataUrl) {
+        validQrLoadedRef.current = true;
+        setQrDataUrl(qrResult.dataUrl ?? null);
+        setPhase('scan_qr');
+        addLog('✅ QR code displayed');
+        pollStartTimeRef.current = Date.now();
+        pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
+        return;
       }
+      if (isRetryableQRResponse(qrResult)) {
+        setPhase('polling');
+        addLog('QR is starting; retrying...');
+        pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
+        return;
+      }
+      addLog(`QR not ready: ${qrResult.error || 'waiting'}`);
 
       pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
     } catch (err) {
