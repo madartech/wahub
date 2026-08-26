@@ -54,17 +54,12 @@ export default function UserDetails() {
   // Provisioning state
   const [isProvisioning, setIsProvisioning] = useState(false);
 
-  // QR state
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [isLoadingQR, setIsLoadingQR] = useState(false);
-  const [qrError, setQrError] = useState<string | null>(null);
+  // QR state — polling/retry logic lives in the shared hook
   const [showQrModal, setShowQrModal] = useState(false);
-  const qrRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const qrRetryTokenRef = useRef(0);
   const qrFlowActiveRef = useRef(false);
   const validQrLoadedRef = useRef(false);
-  const [qrWaitMsg, setQrWaitMsg] = useState<string | null>(null);
-  const [lastQrResult, setLastQrResult] = useState<QrResultSummary | null>(null);
+  qrFlowActiveRef.current = showQrModal;
+
 
   // Send test message state
   const [testPhone, setTestPhone] = useState('');
