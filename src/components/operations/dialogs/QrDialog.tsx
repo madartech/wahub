@@ -9,7 +9,7 @@ import { QRResponse, SessionStatus } from '@/types/gateway';
 import { toast } from '@/hooks/use-toast';
 
 const POLL_MS = 3000;
-const MAX_POLL_MS = 90000;
+const MAX_POLL_MS = 120000;
 
 interface Props {
   open: boolean;
@@ -25,37 +25,65 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
   const [status, setStatus] = useState<SessionStatus | 'UNKNOWN'>('UNKNOWN');
   const [provisioning, setProvisioning] = useState(false);
   const startedAtRef = useRef<number>(0);
+  const qrRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const qrRequestTokenRef = useRef(0);
 
   const fetchStatus = useCallback(async () => {
     const s = await gatewayService.getUserStatus(userId);
     const st = (s.session?.status || 'UNKNOWN') as SessionStatus | 'UNKNOWN';
-    setStatus(st);
+    setStatus((current) => {
+      if (
+        current === 'SCAN_QR_CODE' &&
+        st !== 'SCAN_QR_CODE' &&
+        st !== 'WORKING' &&
+        st !== 'READY' &&
+        st !== 'FAILED' &&
+        st !== 'STOPPED'
+      ) {
+        return current;
+      }
+      return st;
+    });
     return st;
   }, [userId]);
 
-  const fetchQR = useCallback(async () => {
+  const fetchQR = useCallback(async (restartWindow = false) => {
+    if (restartWindow) {
+      startedAtRef.current = Date.now();
+      qrRequestTokenRef.current += 1;
+      if (qrRetryRef.current) clearTimeout(qrRetryRef.current);
+      setQr(null);
+    }
+    const token = qrRequestTokenRef.current;
     setLoading(true);
-    const st = await fetchStatus();
-    if (st === 'WORKING' || st === 'READY') {
-      setQr({ ok: true, alreadyConnected: true, status: st as SessionStatus });
-      setLoading(false);
+    const r = await gatewayService.getQRCode(userId);
+    if (token !== qrRequestTokenRef.current) return;
+    if (r.status === 'SCAN_QR_CODE' || r.status === 'WORKING' || r.status === 'READY' || r.status === 'FAILED' || r.status === 'STOPPED') {
+      setStatus(r.status);
+    }
+    if (!r.ok && Date.now() - startedAtRef.current < MAX_POLL_MS) {
+      setQr(null);
+      qrRetryRef.current = setTimeout(() => void fetchQR(), POLL_MS);
       return;
     }
-    const r = await gatewayService.getQRCode(userId);
-    if (r.status) setStatus(r.status);
     setQr(r);
     setLoading(false);
-  }, [userId, fetchStatus]);
+  }, [userId]);
 
   useEffect(() => {
     if (!open) return;
     startedAtRef.current = Date.now();
+    qrRequestTokenRef.current += 1;
     setQr(null);
     setStatus('UNKNOWN');
-    fetchQR();
+    void fetchQR();
+    return () => {
+      qrRequestTokenRef.current += 1;
+      if (qrRetryRef.current) clearTimeout(qrRetryRef.current);
+    };
   }, [open, fetchQR]);
 
-  // Poll status every 3s for up to 90s while modal is open
+  // Poll status every 3s for up to 120s while modal is open.
   useEffect(() => {
     if (!open) return;
     const id = setInterval(async () => {
@@ -80,10 +108,8 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
       toast({ title: 'Provisioned ✓', description: `${userName} — ${p.status || 'started'}` });
       startedAtRef.current = Date.now();
       if (p.status) setStatus(p.status);
-      // Provision returned ok — fetch the QR right away
-      await fetchQR();
-      // retry once shortly after in case QR wasn't generated yet
-      setTimeout(() => fetchQR(), 4000);
+      // Provision returned ok — open a fresh 120s QR retry window immediately.
+      await fetchQR(true);
     } catch (e) {
       toast({
         title: 'Provision failed',
@@ -117,7 +143,7 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
 
           {!loading && showQr && (
             <img
-              src={qr!.dataUrl}
+              src={qr?.dataUrl}
               alt="WhatsApp QR"
               className="w-full max-w-[256px] aspect-square rounded border bg-white"
             />
@@ -143,7 +169,7 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
             </Button>
           )}
           {!connected && (
-            <Button variant="outline" onClick={fetchQR} disabled={loading}>
+            <Button variant="outline" onClick={() => void fetchQR(true)} disabled={loading}>
               <RefreshCw className={`mr-1 h-3 w-3 ${loading ? 'animate-spin' : ''}`} /> Refresh QR
             </Button>
           )}
