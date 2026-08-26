@@ -98,27 +98,26 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
     }
 
     try {
-      const result = await gatewayService.getUserStatus(userId);
-      const status = result.session?.status || 'UNKNOWN';
-      addLog(`Status: ${status}`);
-
-      if (status === 'WORKING' || status === 'READY') {
-        cleanup();
-        setPhase('connected');
-        setQrDataUrl(null);
-        addLog('✅ WhatsApp connected!');
-        onSuccess?.();
-        return;
-      }
-
       if (validQrLoadedRef.current) {
+        const result = await gatewayService.getUserStatus(userId);
+        const status = result.session?.status || 'UNKNOWN';
+        addLog(`Status: ${status}`);
+        if (status === 'WORKING' || status === 'READY') {
+          cleanup();
+          setPhase('connected');
+          setQrDataUrl(null);
+          addLog('✅ WhatsApp connected!');
+          onSuccess?.();
+          return;
+        }
+        // Once displayed, only a confirmed connection may replace the QR.
         setPhase('scan_qr');
         pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
         return;
       }
 
-      // Ask the QR endpoint directly on every pass. Its dataUrl is the source
-      // of truth and must not be blocked by a stale/UNKNOWN status response.
+      // While waiting, call /qr-base64 directly on every 3-second cycle. A
+      // slower /status request must not delay or replace this retry flow.
       const qrResult = await gatewayService.getQRCode(userId);
       console.log('[QR_BASE64_RESPONSE]', qrResult);
       const hasDataUrl = typeof qrResult.dataUrl === 'string' && qrResult.dataUrl.startsWith('data:image/');
@@ -139,6 +138,15 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
         return;
       }
       addLog(`QR not ready: ${qrResult.error || 'waiting'}`);
+
+      if (qrResult.alreadyConnected || qrResult.status === 'WORKING' || qrResult.status === 'READY') {
+        cleanup();
+        setPhase('connected');
+        setQrDataUrl(null);
+        addLog('✅ WhatsApp connected!');
+        onSuccess?.();
+        return;
+      }
 
       pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
     } catch (err) {
