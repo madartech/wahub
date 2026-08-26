@@ -1,11 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, QrCode, CheckCircle } from 'lucide-react';
+import { RefreshCw, QrCode, CheckCircle, Power, AlertTriangle } from 'lucide-react';
 import { gatewayService } from '@/services/gateway';
-import { QRResponse } from '@/types/gateway';
+import { QRResponse, SessionStatus } from '@/types/gateway';
+import { toast } from '@/hooks/use-toast';
+
+const POLL_MS = 3000;
+const MAX_POLL_MS = 90000;
 
 interface Props {
   open: boolean;
@@ -18,30 +22,77 @@ interface Props {
 export default function QrDialog({ open, onOpenChange, userId, userName, onConnected }: Props) {
   const [loading, setLoading] = useState(false);
   const [qr, setQr] = useState<QRResponse | null>(null);
+  const [status, setStatus] = useState<SessionStatus | 'UNKNOWN'>('UNKNOWN');
+  const [provisioning, setProvisioning] = useState(false);
+  const startedAtRef = useRef<number>(0);
+
+  const fetchStatus = useCallback(async () => {
+    const s = await gatewayService.getUserStatus(userId);
+    const st = (s.session?.status || 'UNKNOWN') as SessionStatus | 'UNKNOWN';
+    setStatus(st);
+    return st;
+  }, [userId]);
 
   const fetchQR = useCallback(async () => {
     setLoading(true);
+    const st = await fetchStatus();
+    if (st === 'WORKING' || st === 'READY') {
+      setQr({ ok: true, alreadyConnected: true, status: st as SessionStatus });
+      setLoading(false);
+      return;
+    }
     const r = await gatewayService.getQRCode(userId);
-    setLoading(false);
+    if (r.status) setStatus(r.status);
     setQr(r);
-  }, [userId]);
+    setLoading(false);
+  }, [userId, fetchStatus]);
 
-  useEffect(() => { if (open) fetchQR(); }, [open, fetchQR]);
+  useEffect(() => {
+    if (!open) return;
+    startedAtRef.current = Date.now();
+    setQr(null);
+    setStatus('UNKNOWN');
+    fetchQR();
+  }, [open, fetchQR]);
 
-  // Poll status while QR shown
+  // Poll status every 3s for up to 90s while modal is open
   useEffect(() => {
     if (!open) return;
     const id = setInterval(async () => {
-      const s = await gatewayService.getUserStatus(userId);
-      const status = s.session?.status;
-      if (status === 'WORKING' || status === 'READY') {
+      if (Date.now() - startedAtRef.current > MAX_POLL_MS) {
         clearInterval(id);
-        onConnected?.();
-        onOpenChange(false);
+        return;
       }
-    }, 2000);
+      const st = await fetchStatus();
+      if (st === 'WORKING' || st === 'READY') {
+        clearInterval(id);
+        setQr({ ok: true, alreadyConnected: true, status: st as SessionStatus });
+        onConnected?.();
+      }
+    }, POLL_MS);
     return () => clearInterval(id);
-  }, [open, userId, onConnected, onOpenChange]);
+  }, [open, fetchStatus, onConnected]);
+
+  const handleProvision = async () => {
+    setProvisioning(true);
+    try {
+      await gatewayService.provisionUser(userId);
+      toast({ title: 'Provisioning started', description: userName });
+      startedAtRef.current = Date.now();
+      setTimeout(() => fetchQR(), 4000);
+    } catch (e) {
+      toast({
+        title: 'Provision failed',
+        description: e instanceof Error ? e.message : 'Error',
+        variant: 'destructive',
+      });
+    }
+    setProvisioning(false);
+  };
+
+  const connected = status === 'WORKING' || status === 'READY' || !!qr?.alreadyConnected;
+  const needsProvision = !connected && (status === 'STOPPED' || status === 'FAILED');
+  const showQr = !connected && !!qr?.dataUrl;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -52,22 +103,45 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
         </DialogHeader>
         <div className="flex flex-col items-center gap-3">
           {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
-          {!loading && qr?.alreadyConnected && (
+
+          {!loading && connected && (
             <div className="flex items-center gap-2 text-success">
-              <CheckCircle className="h-5 w-5" /> Already connected
+              <CheckCircle className="h-5 w-5" /> Connected
             </div>
           )}
-          {!loading && qr?.dataUrl && (
-            <img src={qr.dataUrl} alt="WhatsApp QR" className="w-full max-w-[256px] aspect-square rounded border bg-white" />
+
+          {!loading && showQr && (
+            <img
+              src={qr!.dataUrl}
+              alt="WhatsApp QR"
+              className="w-full max-w-[256px] aspect-square rounded border bg-white"
+            />
           )}
-          {!loading && qr && !qr.ok && (
-            <p className="text-sm text-destructive">QR not available: {qr.status || qr.error}</p>
+
+          {!loading && !connected && !showQr && (
+            <div className="flex flex-col items-center gap-2 text-center">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <p className="text-sm text-destructive">
+                {qr?.error || 'QR not available'}{status !== 'UNKNOWN' ? ` (status: ${status})` : ''}
+              </p>
+            </div>
+          )}
+
+          {!loading && !connected && (
+            <p className="text-xs text-muted-foreground">Waiting for scan… status: {status}</p>
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={fetchQR} disabled={loading}>
-            <RefreshCw className={`mr-1 h-3 w-3 ${loading ? 'animate-spin' : ''}`} /> Refresh
-          </Button>
+          {needsProvision && (
+            <Button onClick={handleProvision} disabled={provisioning}>
+              <Power className="mr-1 h-3 w-3" /> Provision / Reconnect
+            </Button>
+          )}
+          {!connected && (
+            <Button variant="outline" onClick={fetchQR} disabled={loading}>
+              <RefreshCw className={`mr-1 h-3 w-3 ${loading ? 'animate-spin' : ''}`} /> Refresh QR
+            </Button>
+          )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
         </DialogFooter>
       </DialogContent>
