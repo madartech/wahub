@@ -3,8 +3,8 @@ import { gatewayService } from '@/services/gateway';
 import { QRResponse, SessionStatus } from '@/types/gateway';
 
 export const QR_POLL_INTERVAL_MS = 3000;
-export const QR_MAX_WINDOW_MS = 120000;
-export const QR_WAITING_MESSAGE = 'Preparing QR… retrying automatically';
+export const QR_AUTO_PROVISION_INTERVAL_MS = 12000;
+export const QR_WAITING_MESSAGE = 'Preparing QR automatically… please wait.';
 
 export interface QrResultSummary {
   ok: boolean;
@@ -29,9 +29,9 @@ export interface UseQrPreparationOptions {
 
 export interface UseQrPreparationResult {
   dataUrl: string | null;
-  /** True while the 120s retry window is still open and no QR is rendered. */
+  /** True while the panel is active and no QR is rendered. */
   waiting: boolean;
-  /** Only true after the retry window expired without a QR image. */
+  /** Retained for consumer compatibility; the self-healing loop runs until closed. */
   expired: boolean;
   connected: boolean;
   error: string | null;
@@ -75,10 +75,9 @@ export function useQrPreparation({
   const [progress, setProgress] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const provisionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tokenRef = useRef(0);
-  const deadlineRef = useRef(0);
-  const qrLoadedRef = useRef(false);
   const retryCountRef = useRef(0);
 
   const onConnectedRef = useRef(onConnected);
@@ -86,21 +85,24 @@ export function useQrPreparation({
   const onQrLoadedRef = useRef(onQrLoaded);
   onQrLoadedRef.current = onQrLoaded;
 
-  const clearTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
+  const clearTimers = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+    if (provisionTimerRef.current) {
+      clearInterval(provisionTimerRef.current);
+      provisionTimerRef.current = null;
     }
   }, []);
 
   const stop = useCallback(() => {
     tokenRef.current += 1;
-    clearTimer();
-  }, [clearTimer]);
+    clearTimers();
+  }, [clearTimers]);
 
   const reset = useCallback(() => {
     stop();
-    qrLoadedRef.current = false;
     retryCountRef.current = 0;
     setDataUrl(null);
     setExpired(false);
@@ -144,7 +146,6 @@ export function useQrPreparation({
       // The image payload is authoritative — commit before any other check.
       if (gotImage) {
         stop();
-        qrLoadedRef.current = true;
         setDataUrl(result.dataUrl as string);
         setError(null);
         setExpired(false);
@@ -163,79 +164,69 @@ export function useQrPreparation({
         return;
       }
 
-      const remaining = deadlineRef.current - Date.now();
-      setProgress(
-        Math.min(100, Math.max(0, ((QR_MAX_WINDOW_MS - remaining) / QR_MAX_WINDOW_MS) * 100)),
-      );
-
-      if (remaining > 0) {
-        timerRef.current = setTimeout(
-          () => void poll(id, token),
-          Math.max(QR_POLL_INTERVAL_MS, result.retryAfterMs || 0),
-        );
-        return;
-      }
-
-      setExpired(true);
-      setProgress(100);
-      setError(
-        result.error && result.error !== 'qr_starting'
-          ? result.error
-          : 'QR was not ready after 120 seconds. Try Refresh QR.',
+      // Every non-image response is transient. Keep polling while this
+      // generation remains active; the separate 12s timer re-provisions it.
+      setProgress((retryCountRef.current % 4) * 25);
+      pollTimerRef.current = setTimeout(
+        () => void poll(id, token),
+        QR_POLL_INTERVAL_MS,
       );
     },
 
     [stop],
   );
 
-  const restart = useCallback(() => {
+  const start = useCallback((showRefreshState = false) => {
     if (!userId) return;
-    clearTimer();
+    clearTimers();
     const token = ++tokenRef.current;
-    qrLoadedRef.current = false;
     retryCountRef.current = 0;
-    deadlineRef.current = Date.now() + QR_MAX_WINDOW_MS;
     setDataUrl(null);
     setExpired(false);
     setConnected(false);
     setError(null);
     setLastResult(null);
     setProgress(0);
+
+    const provision = async () => {
+      if (token !== tokenRef.current) return;
+      try {
+        await gatewayService.provisionUser(userId);
+      } catch (e) {
+        // Provision errors are transient: polling and the next automatic
+        // provision attempt continue while the panel remains open.
+        console.warn('[QR_AUTO_PROVISION_FAILED]', { userId, error: e });
+      } finally {
+        if (showRefreshState && token === tokenRef.current) setRefreshing(false);
+      }
+    };
+
+    setRefreshing(showRefreshState);
+    void provision();
     void poll(userId, token);
-  }, [userId, clearTimer, poll]);
+    provisionTimerRef.current = setInterval(
+      () => void provision(),
+      QR_AUTO_PROVISION_INTERVAL_MS,
+    );
+  }, [userId, clearTimers, poll]);
+
+  const restart = useCallback(() => {
+    start(false);
+  }, [start]);
 
   const refresh = useCallback(async () => {
     if (!userId) return;
-    setRefreshing(true);
-    // Clear the stale image first so a failed scan cannot linger on screen.
-    stop();
-    qrLoadedRef.current = false;
-    retryCountRef.current = 0;
-    setDataUrl(null);
-    setExpired(false);
-    setError(null);
-    setLastResult(null);
-    setProgress(0);
-    try {
-      await gatewayService.provisionUser(userId);
-    } catch (e) {
-      // Provision failures must not end the flow — the container may already
-      // be running and the background QR job can still deliver an image.
-      console.warn('[QR_REFRESH_PROVISION_FAILED]', e);
-    }
-    setRefreshing(false);
-    restart();
-  }, [userId, stop, restart]);
+    start(true);
+  }, [userId, start]);
 
   useEffect(() => {
     if (!active || !userId) {
       reset();
       return;
     }
-    restart();
+    start(false);
     return () => { stop(); };
-    // restart/reset/stop are stable per userId
-  }, [active, userId, restart, reset, stop]);
+  }, [active, userId, start, reset, stop]);
 
   useEffect(() => () => { stop(); }, [stop]);
 

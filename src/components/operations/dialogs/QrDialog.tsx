@@ -57,7 +57,12 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
             </div>
           )}
 
-          {!qr.dataUrl && <QrDebugSummary result={qr.lastResult} />}
+          {!qr.dataUrl && (
+            <>
+              {qr.lastResult && <p className="text-xs text-muted-foreground">Poll #{qr.lastResult.retryCount}</p>}
+              <QrDebugSummary result={qr.lastResult} />
+            </>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => void qr.refresh()} disabled={qr.refreshing}>

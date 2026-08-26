@@ -87,18 +87,8 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
   };
 
   const handleProvision = async () => {
-    setBusy(true);
-    // Open the QR modal first so its shared polling window starts immediately.
+    // The shared QR hook provisions immediately on open and self-heals every 12s.
     setQrOpen(true);
-    try {
-      await gatewayService.provisionUser(user.id);
-      toast({ title: 'Provisioning started', description: user.name });
-      onChanged();
-      setTimeout(() => onChanged(), 5000);
-    } catch (e) {
-      toast({ title: 'Provision failed', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' });
-    }
-    setBusy(false);
   };
 
 

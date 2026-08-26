@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import {
   Dialog,
   DialogContent,
@@ -164,13 +163,8 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
                 </span>
               </div>
 
-              {!qr.dataUrl && !qr.expired && (
-                <>
-                  <Progress value={qr.progress} className="h-2" />
-                  <p className="text-xs text-muted-foreground">
-                    Retrying automatically for up to 120 seconds… ({Math.round(qr.progress)}%)
-                  </p>
-                </>
+              {!qr.dataUrl && !qr.expired && qr.lastResult && (
+                <p className="text-xs text-muted-foreground">Poll #{qr.lastResult.retryCount}</p>
               )}
 
               {qr.dataUrl && (
