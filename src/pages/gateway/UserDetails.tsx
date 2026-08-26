@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import EmergencyResetDialog from '@/components/gateway/EmergencyResetDialog';
 import PairingCodeDialog from '@/components/operations/dialogs/PairingCodeDialog';
+import { statusCache } from '@/services/statusCache';
+
 
 const POLL_INTERVAL = 2000; // 2 seconds
 const MAX_POLL_TIME = 90000; // 90 seconds
