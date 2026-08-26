@@ -21,6 +21,13 @@ const POLL_INTERVAL = 3000; // 3 seconds
 const QR_RETRY_INTERVAL = 3000; // retry /qr-base64 every 3s
 const QR_RETRY_MAX_MS = 120000; // allow slow WEBJS/Chromium startup
 
+interface QrResultSummary {
+  ok: boolean;
+  status?: SessionStatus;
+  error?: string;
+  hasDataUrl: boolean;
+}
+
 
 const DISPLAY_NAMES_KEY = 'gateway_user_display_names';
 
@@ -66,6 +73,7 @@ export default function UserDetails() {
   const qrFlowActiveRef = useRef(false);
   const validQrLoadedRef = useRef(false);
   const [qrWaitMsg, setQrWaitMsg] = useState<string | null>(null);
+  const [lastQrResult, setLastQrResult] = useState<QrResultSummary | null>(null);
 
   // Send test message state
   const [testPhone, setTestPhone] = useState('');
@@ -266,7 +274,31 @@ export default function UserDetails() {
   const loadQrWithRetry = async (userId: string, deadline: number, token: number) => {
     try {
       const qrResult = await gatewayService.getQRCode(userId);
+      console.log('[QR_BASE64_RESPONSE]', qrResult);
       if (token !== qrRetryTokenRef.current) return;
+
+      const hasDataUrl = typeof qrResult.dataUrl === 'string' && qrResult.dataUrl.startsWith('data:image/');
+      setLastQrResult({
+        ok: qrResult.ok,
+        status: qrResult.status,
+        error: qrResult.error,
+        hasDataUrl,
+      });
+
+      // The image payload is the source of truth. Commit it before inspecting
+      // status/error fields so valid QR responses can never remain in waiting.
+      if (hasDataUrl) {
+        validQrLoadedRef.current = true;
+        setQrDataUrl(qrResult.dataUrl ?? null);
+        setQrError(null);
+        setQrWaitMsg(null);
+        setIsLoadingQR(false);
+        setSessionStatus('SCAN_QR_CODE');
+        statusCache.set(userId, 'SCAN_QR_CODE');
+        if (qrPollingRef.current) clearTimeout(qrPollingRef.current);
+        qrPollingRef.current = setTimeout(() => pollQrStatus(userId), POLL_INTERVAL);
+        return;
+      }
 
       if (qrResult.status === 'SCAN_QR_CODE') {
         setSessionStatus('SCAN_QR_CODE');
@@ -288,20 +320,6 @@ export default function UserDetails() {
         setShowQrModal(false);
         toast({ title: 'Already Connected', description: 'WhatsApp is already connected.' });
         fetchStatus(userId);
-        return;
-      }
-
-      if (qrResult.ok && qrResult.dataUrl) {
-        validQrLoadedRef.current = true;
-        setSessionStatus('SCAN_QR_CODE');
-        statusCache.set(userId, 'SCAN_QR_CODE');
-        setQrDataUrl(qrResult.dataUrl);
-        setQrError(null);
-        setQrWaitMsg(null);
-        setIsLoadingQR(false);
-        // Only now start /status polling to detect the scan
-        if (qrPollingRef.current) clearTimeout(qrPollingRef.current);
-        qrPollingRef.current = setTimeout(() => pollQrStatus(userId), POLL_INTERVAL);
         return;
       }
 
@@ -348,6 +366,7 @@ export default function UserDetails() {
     setQrError(null);
     setQrWaitMsg('Waiting for QR…');
     setQrDataUrl(null);
+    setLastQrResult(null);
     loadQrWithRetry(userId, Date.now() + QR_RETRY_MAX_MS, token);
   };
 
@@ -373,6 +392,7 @@ export default function UserDetails() {
     setQrDataUrl(null);
     setQrError(null);
     setQrWaitMsg(null);
+    setLastQrResult(null);
     setIsLoadingQR(false);
   };
 
@@ -820,7 +840,13 @@ export default function UserDetails() {
             {/* QR Modal */}
             {showQrModal && (
               <div className="flex flex-col items-center gap-4 p-4 border rounded-lg bg-muted/30 max-h-[80vh] overflow-y-auto">
-                {isLoadingQR ? (
+                {qrDataUrl ? (
+                  <img 
+                    src={qrDataUrl} 
+                    alt="WhatsApp QR Code" 
+                    className="w-full max-w-[256px] aspect-square rounded-lg border bg-white"
+                  />
+                ) : isLoadingQR ? (
                   <div className="flex flex-col items-center justify-center gap-3 h-48 w-48 sm:h-64 sm:w-64">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">{qrWaitMsg || 'Loading…'}</p>
@@ -830,13 +856,18 @@ export default function UserDetails() {
                     <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
                     <p className="text-sm text-destructive">{qrError}</p>
                   </div>
-                ) : qrDataUrl ? (
-                  <img 
-                    src={qrDataUrl} 
-                    alt="WhatsApp QR Code" 
-                    className="w-full max-w-[256px] aspect-square rounded-lg border bg-white"
-                  />
                 ) : null}
+
+                {lastQrResult && !qrDataUrl && (
+                  <div className="w-full text-center text-xs text-muted-foreground">
+                    <p>
+                      Last QR: ok={String(lastQrResult.ok)}, status={lastQrResult.status || 'none'}, error={lastQrResult.error || 'none'}, hasDataUrl={String(lastQrResult.hasDataUrl)}
+                    </p>
+                    {lastQrResult.hasDataUrl && (
+                      <p className="mt-1 font-medium text-destructive">QR image received but was not rendered.</p>
+                    )}
+                  </div>
+                )}
 
                 <p className="text-sm text-center text-muted-foreground px-2">
                   Scan this QR in WhatsApp → Linked devices → Link a device

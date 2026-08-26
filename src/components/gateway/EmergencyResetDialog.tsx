@@ -35,12 +35,20 @@ interface EmergencyResetDialogProps {
 
 type ResetPhase = 'confirm' | 'resetting' | 'polling' | 'scan_qr' | 'connected' | 'failed';
 
+interface QrResultSummary {
+  ok: boolean;
+  status?: SessionStatus;
+  error?: string;
+  hasDataUrl: boolean;
+}
+
 export default function EmergencyResetDialog({ open, onOpenChange, userId, userName, onSuccess }: EmergencyResetDialogProps) {
   const [phase, setPhase] = useState<ResetPhase>('confirm');
   const [statusLogs, setStatusLogs] = useState<string[]>([]);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  const [lastQrResult, setLastQrResult] = useState<QrResultSummary | null>(null);
   
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollStartTimeRef = useRef<number>(0);
@@ -65,6 +73,7 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
     setPhase('confirm');
     setStatusLogs([]);
     setQrDataUrl(null);
+    setLastQrResult(null);
     validQrLoadedRef.current = false;
     setErrorMessage(null);
     setProgress(0);
@@ -80,7 +89,7 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
     const progressPercent = Math.min((elapsed / MAX_POLL_TIME) * 100, 100);
     setProgress(progressPercent);
 
-    if (elapsed >= MAX_POLL_TIME) {
+    if (elapsed >= MAX_POLL_TIME && !validQrLoadedRef.current) {
       cleanup();
       setPhase('failed');
       setErrorMessage('Timeout: Polling exceeded 120 seconds');
@@ -99,25 +108,23 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
         return;
       }
 
-      if (status === 'SCAN_QR_CODE') {
-        cleanup();
-        setPhase('scan_qr');
-        addLog('📱 Ready for QR scan - fetching QR code...');
-        
+      // Ask the QR endpoint directly on every pass. Its dataUrl is the source
+      // of truth and must not be blocked by a stale/UNKNOWN status response.
+      if (status !== 'WORKING' && status !== 'READY') {
         const qrResult = await gatewayService.getQRCode(userId);
-        if (qrResult.ok && qrResult.dataUrl) {
+        console.log('[QR_BASE64_RESPONSE]', qrResult);
+        const hasDataUrl = typeof qrResult.dataUrl === 'string' && qrResult.dataUrl.startsWith('data:image/');
+        setLastQrResult({ ok: qrResult.ok, status: qrResult.status, error: qrResult.error, hasDataUrl });
+        if (hasDataUrl) {
           validQrLoadedRef.current = true;
-          setQrDataUrl(qrResult.dataUrl);
+          setQrDataUrl(qrResult.dataUrl ?? null);
+          setPhase('scan_qr');
           addLog('✅ QR code displayed');
           pollStartTimeRef.current = Date.now();
           pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
-        } else {
-          // A WEBJS QR may not be available on the first request. Keep this
-          // dialog alive and retry until the full reset window expires.
-          addLog(`QR not ready: ${qrResult.error || 'waiting'}`);
-          pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
+          return;
         }
-        return;
+        addLog(`QR not ready: ${qrResult.error || 'waiting'}`);
       }
 
       if (status === 'WORKING' || status === 'READY') {
@@ -150,6 +157,7 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
     setPhase('resetting');
     setStatusLogs([]);
     setQrDataUrl(null);
+    setLastQrResult(null);
     validQrLoadedRef.current = false;
     setErrorMessage(null);
     setProgress(0);
@@ -255,6 +263,17 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
                   <p className="text-sm text-center text-muted-foreground">
                     WhatsApp → Linked Devices → Link a device
                   </p>
+                </div>
+              )}
+
+              {lastQrResult && !qrDataUrl && (
+                <div className="text-center text-xs text-muted-foreground">
+                  <p>
+                    Last QR: ok={String(lastQrResult.ok)}, status={lastQrResult.status || 'none'}, error={lastQrResult.error || 'none'}, hasDataUrl={String(lastQrResult.hasDataUrl)}
+                  </p>
+                  {lastQrResult.hasDataUrl && (
+                    <p className="mt-1 font-medium text-destructive">QR image received but was not rendered.</p>
+                  )}
                 </div>
               )}
 
