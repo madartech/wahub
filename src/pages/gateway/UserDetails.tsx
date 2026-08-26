@@ -78,12 +78,27 @@ export default function UserDetails() {
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [showPairDialog, setShowPairDialog] = useState(false);
 
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      if (qrRetryRef.current) clearTimeout(qrRetryRef.current);
-    };
-  }, []);
+  // Shared QR preparation flow (3s polling, 120s window, provision-on-refresh)
+  const qr = useQrPreparation({
+    userId: id,
+    active: showQrModal,
+    onQrLoaded: () => {
+      validQrLoadedRef.current = true;
+      if (id) {
+        setSessionStatus('SCAN_QR_CODE');
+        statusCache.set(id, 'SCAN_QR_CODE');
+      }
+    },
+    onConnected: () => {
+      validQrLoadedRef.current = false;
+      qrFlowActiveRef.current = false;
+      setShowQrModal(false);
+      toast({ title: 'Connected', description: 'WhatsApp is already connected.' });
+      if (id) void fetchStatusRef.current?.(id);
+    },
+  });
+  const fetchStatusRef = useRef<((userId: string) => Promise<SessionStatus>) | null>(null);
+
 
   // Fetch user status - single source of truth
   const fetchStatus = useCallback(async (userId: string) => {
