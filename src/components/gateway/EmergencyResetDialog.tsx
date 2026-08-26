@@ -112,9 +112,10 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
           pollStartTimeRef.current = Date.now();
           pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
         } else {
-          setPhase('failed');
-          setErrorMessage(qrResult.error || 'Failed to get QR code');
-          addLog(`❌ QR error: ${qrResult.error}`);
+          // A WEBJS QR may not be available on the first request. Keep this
+          // dialog alive and retry until the full reset window expires.
+          addLog(`QR not ready: ${qrResult.error || 'waiting'}`);
+          pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
         }
         return;
       }

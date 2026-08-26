@@ -220,12 +220,11 @@ export default function UserDetails() {
       }
 
       setIsProvisioning(false);
-      if (st === 'SCAN_QR_CODE') {
-        // Activate synchronously so an older in-flight /status request cannot
-        // overwrite SCAN_QR_CODE before React renders the QR panel.
-        qrFlowActiveRef.current = true;
-        await handleOpenQrModal();
-      }
+      // A successful provision response is sufficient to open the QR flow.
+      // /qr-base64, not the slower /status endpoint, decides QR visibility.
+      qrFlowActiveRef.current = true;
+      if (st === 'SCAN_QR_CODE') setSessionStatus('SCAN_QR_CODE');
+      await handleOpenQrModal();
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to provision user';
