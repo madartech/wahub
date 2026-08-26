@@ -77,7 +77,7 @@ export default function UserDetails() {
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [showPairDialog, setShowPairDialog] = useState(false);
 
-  // Shared QR preparation flow (3s polling, 120s window, provision-on-refresh)
+  // Shared QR preparation flow (auto-provision on open/12s, 3s QR polling)
   const qr = useQrPreparation({
     userId: user?.id || id,
     active: showQrModal,
@@ -193,41 +193,10 @@ export default function UserDetails() {
 
   const handleProvision = async () => {
     if (!id) return;
-
-    setIsProvisioning(true);
     setError(null);
-    // Open the QR panel first — the shared hook starts its 120s window now.
+    // Opening the panel starts the shared auto-provision and QR polling loop.
     setShowQrModal(true);
     qrFlowActiveRef.current = true;
-
-    try {
-      const provisionResult = await gatewayService.provisionUser(id);
-
-      // Update local user state with instance info
-      setUser(prev => prev ? {
-        ...prev,
-        ...(provisionResult.instanceId ? { instanceId: provisionResult.instanceId } : {}),
-        ...(provisionResult.port ? { port: provisionResult.port } : {}),
-      } : null);
-
-      const st = provisionResult.status;
-      if (st === 'WORKING' || st === 'READY') {
-        setSessionStatus(st);
-        statusCache.set(id, st);
-        setShowQrModal(false);
-        qrFlowActiveRef.current = false;
-        toast({ title: 'Connected', description: 'WhatsApp is already connected.' });
-      } else if (st === 'SCAN_QR_CODE') {
-        setSessionStatus('SCAN_QR_CODE');
-        statusCache.set(id, 'SCAN_QR_CODE');
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to provision user';
-      setError(errorMessage);
-      toast({ title: 'Provision failed', description: errorMessage, variant: 'destructive' });
-    } finally {
-      setIsProvisioning(false);
-    }
   };
 
   const handleOpenQrModal = async () => {
@@ -696,13 +665,13 @@ export default function UserDetails() {
                   <div className="flex flex-col items-center justify-center gap-3 h-48 w-48 sm:h-64 sm:w-64">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">{qr.waitingMessage}</p>
-                    <p className="text-xs text-muted-foreground">{Math.round(qr.progress)}%</p>
+                    {qr.lastResult && <p className="text-xs text-muted-foreground">Poll #{qr.lastResult.retryCount}</p>}
                   </div>
                 ) : (
                   <div className="text-center py-8">
                     <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
                     <p className="text-sm text-destructive">
-                      {qr.error || 'QR was not ready after 120 seconds. Try Refresh QR.'}
+                      {qr.error || 'QR is not available. Try Refresh QR.'}
                     </p>
                   </div>
                 )}
