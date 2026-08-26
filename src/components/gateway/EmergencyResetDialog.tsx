@@ -164,7 +164,11 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
               </div>
 
               {!qr.dataUrl && !qr.expired && qr.lastResult && (
-                <p className="text-xs text-muted-foreground">Poll #{qr.lastResult.retryCount}</p>
+                <p className="text-xs text-muted-foreground">Attempt {qr.lastResult.retryCount}</p>
+              )}
+
+              {!qr.dataUrl && qr.slow && (
+                <p className="text-sm text-muted-foreground">{qr.slowMessage}</p>
               )}
 
               {qr.dataUrl && (

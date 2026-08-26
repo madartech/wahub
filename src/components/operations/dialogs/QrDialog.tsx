@@ -59,7 +59,10 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
 
           {!qr.dataUrl && (
             <>
-              {qr.lastResult && <p className="text-xs text-muted-foreground">Poll #{qr.lastResult.retryCount}</p>}
+              {qr.lastResult && <p className="text-xs text-muted-foreground">Attempt {qr.lastResult.retryCount}</p>}
+              {qr.slow && !qr.connected && (
+                <p className="text-sm text-muted-foreground text-center">{qr.slowMessage}</p>
+              )}
               <QrDebugSummary result={qr.lastResult} />
             </>
           )}
