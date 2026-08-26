@@ -76,9 +76,13 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
   const handleProvision = async () => {
     setProvisioning(true);
     try {
-      await gatewayService.provisionUser(userId);
-      toast({ title: 'Provisioning started', description: userName });
+      const p = await gatewayService.provisionUser(userId);
+      toast({ title: 'Provisioned ✓', description: `${userName} — ${p.status || 'started'}` });
       startedAtRef.current = Date.now();
+      if (p.status) setStatus(p.status);
+      // Provision returned ok — fetch the QR right away
+      await fetchQR();
+      // retry once shortly after in case QR wasn't generated yet
       setTimeout(() => fetchQR(), 4000);
     } catch (e) {
       toast({
@@ -89,6 +93,7 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
     }
     setProvisioning(false);
   };
+
 
   const connected = status === 'WORKING' || status === 'READY' || !!qr?.alreadyConnected;
   const needsProvision = !connected && (status === 'STOPPED' || status === 'FAILED');
