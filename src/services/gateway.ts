@@ -142,16 +142,33 @@ export const gatewayService = {
   },
 
 
-  // Get QR code as base64
+  // Get QR code as base64 (30s timeout)
   async getQRCode(userId: string): Promise<QRResponse> {
-    const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/qr-base64`, {
-      method: 'GET',
-      headers: { 
-        'X-Admin-Token': ADMIN_TOKEN,
-      },
-    });
-    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    let res: Response;
+    try {
+      res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/qr-base64`, {
+        method: 'GET',
+        headers: {
+          'X-Admin-Token': ADMIN_TOKEN,
+        },
+        signal: controller.signal,
+      });
+    } catch (e) {
+      clearTimeout(timeoutId);
+      return {
+        ok: false,
+        error: e instanceof DOMException && e.name === 'AbortError'
+          ? 'QR request timed out'
+          : e instanceof Error ? e.message : 'network_error',
+      };
+    }
+    clearTimeout(timeoutId);
+
     const data = await res.json().catch(() => ({} as any));
+
 
     // Normalize both old (GOWS) and new (WEBJS) response shapes
     const status = (data.status || data.session?.status) as SessionStatus | undefined;
