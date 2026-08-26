@@ -100,11 +100,12 @@ export const gatewayService = {
 
   // Provision a user (create WAHA instance) — can take ~15-30s, allow 60s
   async provisionUser(userId: string): Promise<ProvisionResponse> {
+    const url = `${GATEWAY_BASE_URL}/admin/users/${userId}/provision`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     try {
-      const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/provision`, {
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -118,10 +119,18 @@ export const gatewayService = {
 
       const text = await res.text();
       let data: any = {};
-      try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+      let parseError: unknown = null;
+      try { data = text ? JSON.parse(text) : {}; } catch (e) { parseError = e; data = { raw: text }; }
 
       if (!res.ok) {
-        throw new Error(data.error || data.message || `HTTP ${res.status}`);
+        const msg = data.error || data.message || `HTTP ${res.status} ${res.statusText}`;
+        console.error('Provision request failed', { url, status: res.status, body: text?.slice(0, 500) });
+        throw new Error(`${msg} — POST ${url} (HTTP ${res.status})`);
+      }
+
+      if (parseError) {
+        console.error('Provision request failed', { url, error: parseError, body: text?.slice(0, 500) });
+        throw new Error(`Invalid JSON from gateway — POST ${url}: ${String(text).slice(0, 200)}`);
       }
 
       return {
@@ -134,12 +143,22 @@ export const gatewayService = {
       };
     } catch (error) {
       clearTimeout(timeoutId);
+      console.error('Provision request failed', { url, error });
+
       if (error instanceof DOMException && error.name === 'AbortError') {
-        throw new Error('Provision request timed out after 60s');
+        throw new Error(`Provision timed out after 60s — POST ${url} (AbortError)`);
+      }
+      if (error instanceof TypeError) {
+        // Network-level failure: DNS, CORS, TLS, offline
+        throw new Error(
+          `Network/CORS failure reaching the gateway (TypeError: ${error.message}) — POST ${url}. ` +
+          'Check the gateway is reachable and returns CORS headers for this origin.',
+        );
       }
       throw error;
     }
   },
+
 
 
   // Get QR code as base64 (30s timeout)

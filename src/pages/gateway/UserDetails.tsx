@@ -18,7 +18,9 @@ import { statusCache } from '@/services/statusCache';
 
 
 const POLL_INTERVAL = 2000; // 2 seconds
+const PROVISION_POLL_INTERVAL = 3000; // 3 seconds (post-provision status polling)
 const MAX_POLL_TIME = 90000; // 90 seconds
+
 
 const DISPLAY_NAMES_KEY = 'gateway_user_display_names';
 
@@ -200,7 +202,7 @@ export default function UserDetails() {
     }
 
     // Continue polling
-    pollingRef.current = setTimeout(() => pollStatus(userId, targetStates), POLL_INTERVAL);
+    pollingRef.current = setTimeout(() => pollStatus(userId, targetStates), PROVISION_POLL_INTERVAL);
   }, [fetchStatus, toast]);
 
   const handleProvision = async () => {
@@ -211,7 +213,7 @@ export default function UserDetails() {
 
     try {
       const provisionResult = await gatewayService.provisionUser(id);
-      
+
       // Update local user state with instance info
       setUser(prev => prev ? {
         ...prev,
@@ -219,19 +221,40 @@ export default function UserDetails() {
         port: provisionResult.port,
       } : null);
 
-      // Start polling for status change
+      const st = provisionResult.status;
+      if (st) {
+        setSessionStatus(st);
+        statusCache.set(id, st);
+      }
+
+      // Backend already reports the QR is ready — show it immediately.
+      if (st === 'SCAN_QR_CODE') {
+        setIsProvisioning(false);
+        await handleOpenQrModal();
+        return;
+      }
+
+      if (st === 'WORKING' || st === 'READY') {
+        setIsProvisioning(false);
+        toast({ title: 'Connected', description: 'WhatsApp is already connected.' });
+        return;
+      }
+
+      // Otherwise poll status every 3s for up to 90s
       pollStartTimeRef.current = Date.now();
       pollingRef.current = setTimeout(
-        () => pollStatus(id, ['SCAN_QR_CODE', 'WORKING', 'READY']), 
-        POLL_INTERVAL
+        () => pollStatus(id, ['SCAN_QR_CODE', 'WORKING', 'READY']),
+        PROVISION_POLL_INTERVAL
       );
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to provision user';
       setError(errorMessage);
+      toast({ title: 'Provision failed', description: errorMessage, variant: 'destructive' });
       setIsProvisioning(false);
     }
   };
+
 
   // QR polling - check if status becomes WORKING/READY
   const pollQrStatus = useCallback(async (userId: string) => {
