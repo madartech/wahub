@@ -166,17 +166,8 @@ export function useQrPreparation({
           ? result.error
           : 'QR was not ready after 120 seconds. Try Refresh QR.',
       );
-
-      function qlComplete(url: string) {
-        stop();
-        qrLoadedRef.current = true;
-        setDataUrl(url);
-        setError(null);
-        setExpired(false);
-        setProgress(100);
-        onQrLoadedRef.current?.();
-      }
     },
+
     [stop],
   );
 
