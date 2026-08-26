@@ -98,32 +98,49 @@ export const gatewayService = {
     };
   },
 
-  // Provision a user (create WAHA instance)
+  // Provision a user (create WAHA instance) — can take ~15-30s, allow 60s
   async provisionUser(userId: string): Promise<ProvisionResponse> {
-    const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/provision`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'X-Admin-Token': ADMIN_TOKEN,
-      },
-      body: JSON.stringify({}),
-    });
-    
-    const data = await res.json();
-    
-    if (!res.ok) {
-      throw new Error(data.error || data.message || `HTTP ${res.status}`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+    try {
+      const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/${userId}/provision`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': ADMIN_TOKEN,
+        },
+        body: JSON.stringify({}),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      const text = await res.text();
+      let data: any = {};
+      try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+
+      if (!res.ok) {
+        throw new Error(data.error || data.message || `HTTP ${res.status}`);
+      }
+
+      return {
+        ok: true,
+        userId: data.userId,
+        instanceId: data.instanceId,
+        port: data.port,
+        qrEndpoint: data.qrEndpoint,
+        status: data.status as SessionStatus,
+      };
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw new Error('Provision request timed out after 60s');
+      }
+      throw error;
     }
-    
-    return {
-      ok: true,
-      userId: data.userId,
-      instanceId: data.instanceId,
-      port: data.port,
-      qrEndpoint: data.qrEndpoint,
-      status: data.status as SessionStatus,
-    };
   },
+
 
   // Get QR code as base64
   async getQRCode(userId: string): Promise<QRResponse> {
