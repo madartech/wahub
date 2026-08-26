@@ -1,17 +1,13 @@
-# Fix platform-wide QR retry flow
+# Replace QR preparation flow
 
 ## Implementation
-- Add one shared QR preparation hook that owns the instance-agnostic 3-second polling loop, a 120-second minimum retry window, request cancellation, authoritative `data:image/` handling, and refresh-by-provision behavior.
-- Treat every response without a valid QR image as retryable during the active window, including startup/unknown states, aborts, timeouts, and HTTP 502/524 responses.
-- Update User Details, Operations QR dialog, and Emergency Reset dialog to consume the shared flow so status polling cannot replace an active or loaded QR state.
-- Make every QR surface show “Preparing QR... retrying automatically,” keep diagnostics secondary, and expose an enabled Refresh QR action that provisions again and restarts polling from zero.
-- Preserve Emergency Reset’s destructive reset confirmation while using the shared QR preparation flow after reset.
+- Replace `useQrPreparation` with one generation-based lifecycle: provision and poll immediately, poll every 3 seconds, and reprovision every 12 seconds while active and unresolved.
+- Ignore stale asynchronous results after refresh, close, user change, or unmount; stop both intervals immediately when a valid `data:image/` QR or `WORKING`/`READY` status arrives.
+- Keep transient responses and request failures in the waiting state, with console-only diagnostic logging.
+- Make Refresh QR clear the current result, start a new generation, provision immediately, and restart both intervals; make reset clear timers and state.
+- Remove `QrDebugSummary` imports and rendering from QrDialog, UserDetails, and EmergencyResetDialog. Preserve only the calm waiting message and attempt count before the QR appears.
 
 ## Technical details
-- Extend normalized QR responses with HTTP status where needed for diagnostics/retry classification.
-- Stop polling immediately when any valid `data:image/` URL is returned, regardless of other response metadata.
-- Invalidate stale in-flight responses with generation tokens when refreshing, closing, changing users, or unmounting.
-
-## Verification
-- Run focused TypeScript checks/tests available in the project.
-- Confirm the preview build log reports a successful build.
+- Preserve the hook’s current public return shape where useful so consumers require minimal changes, but remove deadline/error behavior from the active flow.
+- Keep RowActions using QrDialog; opening that dialog activates the shared hook automatically.
+- Verify TypeScript and the preview build signal after edits.
