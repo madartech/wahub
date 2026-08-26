@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -19,11 +19,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { gatewayService } from '@/services/gateway';
-import { isRetryableQRResponse, SessionStatus } from '@/types/gateway';
+import { useQrPreparation } from '@/hooks/useQrPreparation';
+import QrDebugSummary from '@/components/operations/dialogs/QrDebugSummary';
 import { AlertTriangle, Loader2, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
-
-const POLL_INTERVAL = 3000; // retry /qr-base64 every 3 seconds
-const MAX_POLL_TIME = 120000; // 120 seconds
 
 interface EmergencyResetDialogProps {
   open: boolean;
@@ -33,127 +31,54 @@ interface EmergencyResetDialogProps {
   onSuccess?: () => void;
 }
 
-type ResetPhase = 'confirm' | 'resetting' | 'polling' | 'scan_qr' | 'connected' | 'failed';
-
-interface QrResultSummary {
-  ok: boolean;
-  status?: SessionStatus;
-  error?: string;
-  hasDataUrl: boolean;
-}
+type ResetPhase = 'confirm' | 'resetting' | 'qr' | 'failed';
 
 export default function EmergencyResetDialog({ open, onOpenChange, userId, userName, onSuccess }: EmergencyResetDialogProps) {
   const [phase, setPhase] = useState<ResetPhase>('confirm');
   const [statusLogs, setStatusLogs] = useState<string[]>([]);
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [lastQrResult, setLastQrResult] = useState<QrResultSummary | null>(null);
-  
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pollStartTimeRef = useRef<number>(0);
-  const validQrLoadedRef = useRef(false);
 
   const displayName = userName || userId;
+  const loggedRef = useRef({ qr: false, connected: false });
 
-  const addLog = (message: string) => {
+  const addLog = useCallback((message: string) => {
     const timestamp = new Date().toLocaleTimeString();
     setStatusLogs(prev => [...prev.slice(-10), `[${timestamp}] ${message}`]);
-  };
-
-  const cleanup = useCallback(() => {
-    if (pollingRef.current) {
-      clearTimeout(pollingRef.current);
-      pollingRef.current = null;
-    }
   }, []);
 
-  const resetState = useCallback(() => {
-    cleanup();
-    setPhase('confirm');
-    setStatusLogs([]);
-    setQrDataUrl(null);
-    setLastQrResult(null);
-    validQrLoadedRef.current = false;
-    setErrorMessage(null);
-    setProgress(0);
-  }, [cleanup]);
+  const qr = useQrPreparation({
+    userId,
+    active: open && phase === 'qr',
+    onConnected: () => {
+      if (loggedRef.current.connected) return;
+      loggedRef.current.connected = true;
+      addLog('✅ WhatsApp connected!');
+      onSuccess?.();
+    },
+    onQrLoaded: () => {
+      if (loggedRef.current.qr) return;
+      loggedRef.current.qr = true;
+      addLog('✅ QR code displayed');
+    },
+  });
+
+  useEffect(() => {
+    if (phase === 'qr' && qr.expired) addLog('❌ QR preparation window expired');
+  }, [phase, qr.expired, addLog]);
 
   const handleClose = () => {
-    resetState();
+    setPhase('confirm');
+    setStatusLogs([]);
+    setErrorMessage(null);
+    loggedRef.current = { qr: false, connected: false };
     onOpenChange(false);
   };
 
-  const pollStatus = useCallback(async () => {
-    const elapsed = Date.now() - pollStartTimeRef.current;
-    const progressPercent = Math.min((elapsed / MAX_POLL_TIME) * 100, 100);
-    setProgress(progressPercent);
-
-    if (elapsed >= MAX_POLL_TIME && !validQrLoadedRef.current) {
-      cleanup();
-      setPhase('failed');
-      setErrorMessage('Timeout: Polling exceeded 120 seconds');
-      addLog('❌ Timeout reached');
-      return;
-    }
-
-    try {
-      if (validQrLoadedRef.current) {
-        // A loaded QR is authoritative. Stop all polling until the user closes
-        // the dialog; /status must never hide or replace the image.
-        cleanup();
-        setPhase('scan_qr');
-        return;
-      }
-
-      // While waiting, call /qr-base64 directly on every 3-second cycle. A
-      // slower /status request must not delay or replace this retry flow.
-      const qrResult = await gatewayService.getQRCode(userId);
-      console.log('[QR_BASE64_RESPONSE]', qrResult);
-      const hasDataUrl = typeof qrResult.dataUrl === 'string' && qrResult.dataUrl.startsWith('data:image/');
-      setLastQrResult({ ok: qrResult.ok, status: qrResult.status, error: qrResult.error, hasDataUrl });
-      if (hasDataUrl) {
-        validQrLoadedRef.current = true;
-        setQrDataUrl(qrResult.dataUrl ?? null);
-        setPhase('scan_qr');
-        addLog('✅ QR code displayed');
-        cleanup();
-        return;
-      }
-      if (isRetryableQRResponse(qrResult)) {
-        setPhase('polling');
-        addLog('QR is starting; retrying...');
-        pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
-        return;
-      }
-      addLog(`QR not ready: ${qrResult.error || 'waiting'}`);
-
-      if (qrResult.alreadyConnected || qrResult.status === 'WORKING' || qrResult.status === 'READY') {
-        cleanup();
-        setPhase('connected');
-        setQrDataUrl(null);
-        addLog('✅ WhatsApp connected!');
-        onSuccess?.();
-        return;
-      }
-
-      pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      addLog(`⚠️ Poll error: ${msg}`);
-      pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
-    }
-  }, [cleanup, userId, onSuccess]);
-
   const handleConfirmReset = async () => {
-    cleanup();
     setPhase('resetting');
     setStatusLogs([]);
-    setQrDataUrl(null);
-    setLastQrResult(null);
-    validQrLoadedRef.current = false;
     setErrorMessage(null);
-    setProgress(0);
+    loggedRef.current = { qr: false, connected: false };
     addLog('🔄 Starting reset...');
 
     try {
@@ -163,10 +88,8 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
         throw new Error(op.error || 'reset-session failed');
       }
       addLog('✅ Reset-session call successful (container removed, session wiped, reprovisioned)');
-      
-      setPhase('polling');
-      pollStartTimeRef.current = Date.now();
-      pollingRef.current = setTimeout(pollStatus, POLL_INTERVAL);
+      addLog('⏳ Preparing QR…');
+      setPhase('qr');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Reset failed';
       setPhase('failed');
@@ -179,7 +102,8 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
     handleConfirmReset();
   };
 
-  const isRunning = phase === 'resetting' || phase === 'polling' || phase === 'scan_qr';
+  const isRunning = phase === 'resetting' || (phase === 'qr' && !qr.connected);
+
 
   if (phase === 'confirm') {
     return (
