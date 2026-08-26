@@ -57,7 +57,6 @@ export default function UserDetails() {
   // QR state — polling/retry logic lives in the shared hook
   const [showQrModal, setShowQrModal] = useState(false);
   const qrFlowActiveRef = useRef(false);
-  const validQrLoadedRef = useRef(false);
   qrFlowActiveRef.current = showQrModal;
 
 
@@ -80,17 +79,15 @@ export default function UserDetails() {
 
   // Shared QR preparation flow (3s polling, 120s window, provision-on-refresh)
   const qr = useQrPreparation({
-    userId: id,
+    userId: user?.id || id,
     active: showQrModal,
     onQrLoaded: () => {
-      validQrLoadedRef.current = true;
       if (id) {
         setSessionStatus('SCAN_QR_CODE');
         statusCache.set(id, 'SCAN_QR_CODE');
       }
     },
     onConnected: () => {
-      validQrLoadedRef.current = false;
       qrFlowActiveRef.current = false;
       setShowQrModal(false);
       toast({ title: 'Connected', description: 'WhatsApp is already connected.' });
@@ -109,7 +106,7 @@ export default function UserDetails() {
       // While /qr-base64 is waiting or displayed, /status may only confirm a
       // connection. It must not replace the QR flow with a transient state.
       if (qrFlowActiveRef.current && nextStatus !== 'WORKING' && nextStatus !== 'READY') {
-        return validQrLoadedRef.current ? 'SCAN_QR_CODE' : currentStatus;
+        return currentStatus;
       }
       return nextStatus;
     });
@@ -240,14 +237,12 @@ export default function UserDetails() {
 
   const handleCloseQrModal = () => {
     qrFlowActiveRef.current = false;
-    validQrLoadedRef.current = false;
     setShowQrModal(false);
     qr.reset();
   };
 
   const handleRefreshQR = async () => {
     if (!id) return;
-    validQrLoadedRef.current = false;
     await qr.refresh();
   };
 
@@ -714,9 +709,11 @@ export default function UserDetails() {
 
                 {!qr.dataUrl && <QrDebugSummary result={qr.lastResult} />}
 
-                <p className="text-sm text-center text-muted-foreground px-2">
-                  Scan this QR in WhatsApp → Linked devices → Link a device
-                </p>
+                {qr.dataUrl && (
+                  <p className="text-sm text-center text-muted-foreground px-2">
+                    Scan this QR in WhatsApp → Linked devices → Link a device
+                  </p>
+                )}
 
                 <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   <Button 

@@ -21,8 +21,12 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><QrCode className="h-5 w-5" /> Scan QR — {userName}</DialogTitle>
-          <DialogDescription>WhatsApp → Linked Devices → Link a device</DialogDescription>
+          <DialogTitle className="flex items-center gap-2">
+            <QrCode className="h-5 w-5" /> {qr.dataUrl ? 'Scan QR' : 'Preparing QR'} — {userName}
+          </DialogTitle>
+          <DialogDescription>
+            {qr.dataUrl ? 'WhatsApp → Linked Devices → Link a device' : qr.waitingMessage}
+          </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col items-center gap-3">
           {qr.dataUrl && (
