@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { gatewayService } from '@/services/gateway';
 import { useQrPreparation } from '@/hooks/useQrPreparation';
-import QrDebugSummary from '@/components/operations/dialogs/QrDebugSummary';
+
 import { AlertTriangle, Loader2, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 
 interface EmergencyResetDialogProps {
@@ -61,9 +61,6 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
     },
   });
 
-  useEffect(() => {
-    if (phase === 'qr' && qr.expired) addLog('❌ QR preparation window expired');
-  }, [phase, qr.expired, addLog]);
 
   const handleClose = () => {
     setPhase('confirm');
@@ -163,12 +160,8 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
                 </span>
               </div>
 
-              {!qr.dataUrl && !qr.expired && qr.lastResult && (
-                <p className="text-xs text-muted-foreground">Attempt {qr.lastResult.retryCount}</p>
-              )}
-
-              {!qr.dataUrl && qr.slow && (
-                <p className="text-sm text-muted-foreground">{qr.slowMessage}</p>
+              {phase === 'qr' && !qr.dataUrl && qr.attempt > 0 && (
+                <p className="text-xs text-muted-foreground">Attempt {qr.attempt}</p>
               )}
 
               {qr.dataUrl && (
@@ -184,11 +177,6 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
                 </div>
               )}
 
-              {phase === 'qr' && qr.expired && !qr.refreshing && (
-                <p className="text-sm text-destructive">{qr.error || 'QR was not ready in time.'}</p>
-              )}
-
-              {!qr.dataUrl && <QrDebugSummary result={qr.lastResult} />}
 
               <div className="flex gap-2">
                 {phase === 'qr' && (

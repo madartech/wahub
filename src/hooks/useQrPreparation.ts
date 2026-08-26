@@ -1,71 +1,35 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { gatewayService } from '@/services/gateway';
-import { QRResponse, SessionStatus } from '@/types/gateway';
 
 export const QR_POLL_INTERVAL_MS = 3000;
 export const QR_AUTO_PROVISION_INTERVAL_MS = 12000;
 export const QR_WAITING_MESSAGE = 'Preparing WhatsApp QR… this usually takes a few seconds.';
-export const QR_SLOW_HINT_MS = 60000;
-export const QR_SLOW_MESSAGE = 'Still preparing. Tap Refresh QR or close and reopen.';
-
-export interface QrResultSummary {
-  ok: boolean;
-  userId: string;
-  endpoint: string;
-  polledAt: string;
-  retryCount: number;
-  status?: SessionStatus;
-  error?: string;
-  hasDataUrl: boolean;
-}
 
 export interface UseQrPreparationOptions {
   userId?: string;
-  /** Start (and keep) the polling loop while true. */
+  /** Run the provision + poll loop while true. */
   active: boolean;
-  /** Called once when the backend reports the session is already connected. */
+  /** Fired once when the backend reports the session is connected. */
   onConnected?: () => void;
-  /** Called whenever a QR image is rendered for the first time in a window. */
+  /** Fired once when a QR image is rendered. */
   onQrLoaded?: () => void;
 }
 
 export interface UseQrPreparationResult {
   dataUrl: string | null;
-  /** True while the panel is active and no QR is rendered. */
-  waiting: boolean;
-  /** Retained for consumer compatibility; the self-healing loop runs until closed. */
-  expired: boolean;
   connected: boolean;
-  error: string | null;
-  waitingMessage: string;
-  lastResult: QrResultSummary | null;
-  progress: number;
-  /** True once the QR has not appeared within 60s of the current attempt. */
-  slow: boolean;
-  slowMessage: string;
+  waiting: boolean;
+  attempt: number;
   refreshing: boolean;
-  /** Provision again, clear the QR image, restart polling from zero. */
+  waitingMessage: string;
   refresh: () => Promise<void>;
-  /** Restart polling from zero without calling provision. */
-  restart: () => void;
-  /** Stop polling and clear all QR state. */
   reset: () => void;
 }
 
-export function hasQrImage(r: Pick<QRResponse, 'dataUrl'>): boolean {
-  return typeof r.dataUrl === 'string' && r.dataUrl.startsWith('data:image/');
-}
-
 /**
- * Shared, instance-agnostic QR preparation flow.
- *
- * Contract:
- * - Opening the panel provisions immediately, polls every 3 seconds, and
- *   provisions again every 12 seconds until an image is available or it closes.
- * - Any response WITHOUT a `data:image/` payload is retryable while active
- *   (qr_starting, STARTING, UNKNOWN, aborts, timeouts, 502, 524, …).
- * - Any response WITH a `data:image/` payload renders immediately and stops
- *   polling, regardless of ok/status/cached metadata.
+ * Simple, reliable QR preparation loop:
+ * provision immediately, poll /qr-base64 immediately and then every 3s,
+ * re-provision every 12s until a QR image or a connected session appears.
  */
 export function useQrPreparation({
   userId,
@@ -74,19 +38,13 @@ export function useQrPreparation({
   onQrLoaded,
 }: UseQrPreparationOptions): UseQrPreparationResult {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
-  const [expired, setExpired] = useState(false);
   const [connected, setConnected] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<QrResultSummary | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [slow, setSlow] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
-  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const provisionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const tokenRef = useRef(0);
-  const retryCountRef = useRef(0);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const provisionRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const genRef = useRef(0);
 
   const onConnectedRef = useRef(onConnected);
   onConnectedRef.current = onConnected;
@@ -94,153 +52,83 @@ export function useQrPreparation({
   onQrLoadedRef.current = onQrLoaded;
 
   const clearTimers = useCallback(() => {
-    if (pollTimerRef.current) {
-      clearTimeout(pollTimerRef.current);
-      pollTimerRef.current = null;
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
     }
-    if (provisionTimerRef.current) {
-      clearInterval(provisionTimerRef.current);
-      provisionTimerRef.current = null;
-    }
-    if (slowTimerRef.current) {
-      clearTimeout(slowTimerRef.current);
-      slowTimerRef.current = null;
+    if (provisionRef.current) {
+      clearInterval(provisionRef.current);
+      provisionRef.current = null;
     }
   }, []);
 
-  const stop = useCallback(() => {
-    tokenRef.current += 1;
+  const reset = useCallback(() => {
+    genRef.current += 1;
     clearTimers();
+    setDataUrl(null);
+    setConnected(false);
+    setAttempt(0);
+    setRefreshing(false);
   }, [clearTimers]);
 
-  const reset = useCallback(() => {
-    stop();
-    retryCountRef.current = 0;
-    setDataUrl(null);
-    setExpired(false);
-    setConnected(false);
-    setError(null);
-    setLastResult(null);
-    setProgress(0);
-    setSlow(false);
-  }, [stop]);
-
-  const poll = useCallback(
-    async (id: string, token: number) => {
-      let result: QRResponse;
-      try {
-        result = await gatewayService.getQRCode(id);
-      } catch (e) {
-        // Network/abort failures are retryable, never terminal while active.
-        result = {
-          ok: false,
-          userId: id,
-          endpoint: `/admin/users/${encodeURIComponent(id)}/qr-base64`,
-          polledAt: new Date().toISOString(),
-          error: e instanceof Error ? e.message : 'network_error',
-        };
-      }
-      console.log('[QR_BASE64_RESPONSE]', result);
-      if (token !== tokenRef.current) return;
-
-      const gotImage = hasQrImage(result);
-      retryCountRef.current += 1;
-      setLastResult({
-        ok: result.ok,
-        userId: result.userId || id,
-        endpoint: result.endpoint || `/admin/users/${encodeURIComponent(id)}/qr-base64`,
-        polledAt: result.polledAt || new Date().toISOString(),
-        retryCount: retryCountRef.current,
-        status: result.status,
-        error: result.error,
-        hasDataUrl: gotImage,
-      });
-
-      // The image payload is authoritative — commit before any other check.
-      if (gotImage) {
-        stop();
-        setDataUrl(result.dataUrl as string);
-        setError(null);
-        setExpired(false);
-        setProgress(100);
-        setSlow(false);
-        onQrLoadedRef.current?.();
-        return;
-      }
-
-      // Session already authenticated: stop the loop and notify the consumer.
-      if (result.status === 'WORKING' || result.status === 'READY') {
-        stop();
-        setConnected(true);
-        setError(null);
-        setProgress(100);
-        setSlow(false);
-        onConnectedRef.current?.();
-        return;
-      }
-
-
-
-      // Every non-image response is transient. Keep polling while this
-      // generation remains active; the separate 12s timer re-provisions it.
-      setProgress((retryCountRef.current % 4) * 25);
-      pollTimerRef.current = setTimeout(
-        () => void poll(id, token),
-        QR_POLL_INTERVAL_MS,
-      );
-    },
-
-    [stop],
-  );
-
-  const start = useCallback((showRefreshState = false) => {
-    if (!userId) return;
+  const start = useCallback((id: string, showRefreshing: boolean) => {
     clearTimers();
-    const token = ++tokenRef.current;
-    retryCountRef.current = 0;
+    const gen = ++genRef.current;
     setDataUrl(null);
-    setExpired(false);
     setConnected(false);
-    setError(null);
-    setLastResult(null);
-    setProgress(0);
-    setSlow(false);
-    slowTimerRef.current = setTimeout(() => {
-      if (token === tokenRef.current) setSlow(true);
-    }, QR_SLOW_HINT_MS);
+    setAttempt(0);
+    setRefreshing(showRefreshing);
 
-    let provisionInFlight = false;
     const provision = async () => {
-      if (token !== tokenRef.current || provisionInFlight) return;
-      provisionInFlight = true;
+      if (gen !== genRef.current) return;
       try {
-        await gatewayService.provisionUser(userId);
+        await gatewayService.provisionUser(id);
       } catch (e) {
-        // Provision errors are transient: polling and the next automatic
-        // provision attempt continue while the panel remains open.
-        console.warn('[QR_AUTO_PROVISION_FAILED]', { userId, error: e });
+        console.info('[QR_PROVISION_RETRY]', { userId: id, error: e });
       } finally {
-        provisionInFlight = false;
-        if (showRefreshState && token === tokenRef.current) setRefreshing(false);
+        if (gen === genRef.current) setRefreshing(false);
       }
     };
 
-    setRefreshing(showRefreshState);
-    void provision();
-    void poll(userId, token);
-    provisionTimerRef.current = setInterval(
-      () => void provision(),
-      QR_AUTO_PROVISION_INTERVAL_MS,
-    );
-  }, [userId, clearTimers, poll]);
+    const poll = async () => {
+      if (gen !== genRef.current) return;
+      try {
+        const r = await gatewayService.getQRCode(id);
+        if (gen !== genRef.current) return;
+        setAttempt((n) => n + 1);
 
-  const restart = useCallback(() => {
-    start(false);
-  }, [start]);
+        if (typeof r.dataUrl === 'string' && r.dataUrl.startsWith('data:image/')) {
+          genRef.current += 1;
+          clearTimers();
+          setDataUrl(r.dataUrl);
+          setRefreshing(false);
+          onQrLoadedRef.current?.();
+          return;
+        }
+
+        if (r.status === 'WORKING' || r.status === 'READY' || r.alreadyConnected) {
+          genRef.current += 1;
+          clearTimers();
+          setConnected(true);
+          setRefreshing(false);
+          onConnectedRef.current?.();
+        }
+      } catch (e) {
+        if (gen !== genRef.current) return;
+        setAttempt((n) => n + 1);
+        console.info('[QR_POLL_RETRY]', { userId: id, error: e });
+      }
+    };
+
+    void provision();
+    void poll();
+    pollRef.current = setInterval(() => void poll(), QR_POLL_INTERVAL_MS);
+    provisionRef.current = setInterval(() => void provision(), QR_AUTO_PROVISION_INTERVAL_MS);
+  }, [clearTimers]);
 
   const refresh = useCallback(async () => {
     if (!userId) return;
-    start(true);
+    start(userId, true);
   }, [userId, start]);
 
   useEffect(() => {
@@ -248,28 +136,21 @@ export function useQrPreparation({
       reset();
       return;
     }
-    start(false);
-    return () => { stop(); };
-  }, [active, userId, start, reset, stop]);
-
-  useEffect(() => () => { stop(); }, [stop]);
-
-  const waiting = !dataUrl && !connected && !expired && active;
+    start(userId, false);
+    return () => {
+      genRef.current += 1;
+      clearTimers();
+    };
+  }, [active, userId, start, reset, clearTimers]);
 
   return {
     dataUrl,
-    waiting,
-    expired,
     connected,
-    error,
-    waitingMessage: QR_WAITING_MESSAGE,
-    lastResult,
-    progress,
-    slow,
-    slowMessage: QR_SLOW_MESSAGE,
+    waiting: active && !dataUrl && !connected,
+    attempt,
     refreshing,
+    waitingMessage: QR_WAITING_MESSAGE,
     refresh,
-    restart,
     reset,
   };
 }
