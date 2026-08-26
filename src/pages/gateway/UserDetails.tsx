@@ -202,7 +202,7 @@ export default function UserDetails() {
     }
 
     // Continue polling
-    pollingRef.current = setTimeout(() => pollStatus(userId, targetStates), POLL_INTERVAL);
+    pollingRef.current = setTimeout(() => pollStatus(userId, targetStates), PROVISION_POLL_INTERVAL);
   }, [fetchStatus, toast]);
 
   const handleProvision = async () => {
