@@ -27,12 +27,16 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
   const startedAtRef = useRef<number>(0);
   const qrRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const qrRequestTokenRef = useRef(0);
+  const validQrLoadedRef = useRef(false);
   const fetchQrRef = useRef<(restartWindow?: boolean) => Promise<void>>(async () => undefined);
 
   const fetchStatus = useCallback(async () => {
     const s = await gatewayService.getUserStatus(userId);
     const st = (s.session?.status || 'UNKNOWN') as SessionStatus | 'UNKNOWN';
     setStatus((current) => {
+      if (validQrLoadedRef.current && st !== 'WORKING' && st !== 'READY') {
+        return 'SCAN_QR_CODE';
+      }
       if (
         current === 'SCAN_QR_CODE' &&
         st !== 'SCAN_QR_CODE' &&
@@ -54,12 +58,16 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
       qrRequestTokenRef.current += 1;
       if (qrRetryRef.current) clearTimeout(qrRetryRef.current);
       setQr(null);
+      validQrLoadedRef.current = false;
     }
     const token = qrRequestTokenRef.current;
     setLoading(true);
     const r = await gatewayService.getQRCode(userId);
     if (token !== qrRequestTokenRef.current) return;
-    if (r.status === 'SCAN_QR_CODE' || r.status === 'WORKING' || r.status === 'READY' || r.status === 'FAILED' || r.status === 'STOPPED') {
+    if (r.ok && r.dataUrl) {
+      validQrLoadedRef.current = true;
+      setStatus('SCAN_QR_CODE');
+    } else if (r.status === 'SCAN_QR_CODE' || r.status === 'WORKING' || r.status === 'READY' || r.status === 'FAILED' || r.status === 'STOPPED') {
       setStatus(r.status);
     }
     if (!r.ok && Date.now() - startedAtRef.current < MAX_POLL_MS) {
@@ -77,6 +85,7 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
     startedAtRef.current = Date.now();
     qrRequestTokenRef.current += 1;
     setQr(null);
+    validQrLoadedRef.current = false;
     setStatus('UNKNOWN');
     void fetchQR();
     return () => {
@@ -96,6 +105,7 @@ export default function QrDialog({ open, onOpenChange, userId, userName, onConne
       const st = await fetchStatus();
       if (st === 'WORKING' || st === 'READY') {
         clearInterval(id);
+        validQrLoadedRef.current = false;
         setQr({ ok: true, alreadyConnected: true, status: st as SessionStatus });
         onConnected?.();
       }
