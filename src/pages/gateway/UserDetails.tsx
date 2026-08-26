@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import EmergencyResetDialog from '@/components/gateway/EmergencyResetDialog';
 import PairingCodeDialog from '@/components/operations/dialogs/PairingCodeDialog';
-import QrDebugSummary from '@/components/operations/dialogs/QrDebugSummary';
+
 import { useQrPreparation } from '@/hooks/useQrPreparation';
 import { statusCache } from '@/services/statusCache';
 
@@ -661,31 +661,26 @@ export default function UserDetails() {
                     alt="WhatsApp QR Code" 
                     className="w-full max-w-[256px] aspect-square rounded-lg border bg-white"
                   />
-                ) : !qr.expired ? (
-                  <div className="flex flex-col items-center justify-center gap-3 h-48 w-48 sm:h-64 sm:w-64">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">{qr.waitingMessage}</p>
-                    {qr.lastResult && <p className="text-xs text-muted-foreground">Attempt {qr.lastResult.retryCount}</p>}
-                    {qr.slow && (
-                      <p className="text-sm text-muted-foreground text-center px-2">{qr.slowMessage}</p>
-                    )}
+                ) : qr.connected ? (
+                  <div className="flex items-center gap-2 text-success py-8">
+                    <CheckCircle className="h-5 w-5" /> Connected
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
-                    <p className="text-sm text-destructive">
-                      {qr.error || 'QR is not available. Try Refresh QR.'}
-                    </p>
+                  <div className="flex flex-col items-center justify-center gap-3 h-48 w-48 sm:h-64 sm:w-64">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground text-center px-2">{qr.waitingMessage}</p>
+                    {qr.attempt > 0 && (
+                      <p className="text-xs text-muted-foreground">Attempt {qr.attempt}</p>
+                    )}
                   </div>
                 )}
-
-                {!qr.dataUrl && <QrDebugSummary result={qr.lastResult} />}
 
                 {qr.dataUrl && (
                   <p className="text-sm text-center text-muted-foreground px-2">
                     Scan this QR in WhatsApp → Linked devices → Link a device
                   </p>
                 )}
+
 
                 <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   <Button 
