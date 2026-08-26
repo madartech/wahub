@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
-import { GatewayUser, getConnectionState, isRetryableQRResponse, SessionStatus, UserConnectionState } from '@/types/gateway';
+import { GatewayUser, getConnectionState, SessionStatus, UserConnectionState } from '@/types/gateway';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Copy, Loader2, QrCode, RefreshCw, CheckCircle, AlertCircle, Eye, EyeOff, Send, Phone, Key, Unplug, RotateCcw, Smartphone } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,18 +14,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import EmergencyResetDialog from '@/components/gateway/EmergencyResetDialog';
 import PairingCodeDialog from '@/components/operations/dialogs/PairingCodeDialog';
+import QrDebugSummary from '@/components/operations/dialogs/QrDebugSummary';
+import { useQrPreparation } from '@/hooks/useQrPreparation';
 import { statusCache } from '@/services/statusCache';
 
 
-const QR_RETRY_INTERVAL = 3000; // retry /qr-base64 every 3s
-const QR_RETRY_MAX_MS = 120000; // allow slow WEBJS/Chromium startup
-
-interface QrResultSummary {
-  ok: boolean;
-  status?: SessionStatus;
-  error?: string;
-  hasDataUrl: boolean;
-}
 
 
 const DISPLAY_NAMES_KEY = 'gateway_user_display_names';
