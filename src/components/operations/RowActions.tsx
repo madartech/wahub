@@ -87,8 +87,14 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
   };
 
   const handleProvision = async () => {
-    // The shared QR hook provisions immediately on open and self-heals every 12s.
-    setQrOpen(true);
+    setBusy(true);
+    const r = await gatewayService.provisionUser(user.id);
+    setBusy(false);
+    if (r.ok) {
+      setQrOpen(true);
+    } else {
+      toast({ title: 'Provision failed', description: r.error || 'Try again.', variant: 'destructive' });
+    }
   };
 
 
