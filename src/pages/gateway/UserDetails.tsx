@@ -20,6 +20,8 @@ import { statusCache } from '@/services/statusCache';
 const POLL_INTERVAL = 2000; // 2 seconds
 const PROVISION_POLL_INTERVAL = 3000; // 3 seconds (post-provision status polling)
 const MAX_POLL_TIME = 90000; // 90 seconds
+const QR_RETRY_INTERVAL = 3000; // retry /qr-base64 every 3s
+const QR_RETRY_MAX_MS = 90000; // for up to 90s
 
 
 const DISPLAY_NAMES_KEY = 'gateway_user_display_names';
