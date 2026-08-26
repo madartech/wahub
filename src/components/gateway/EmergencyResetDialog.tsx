@@ -89,7 +89,7 @@ export default function EmergencyResetDialog({ open, onOpenChange, userId, userN
     const progressPercent = Math.min((elapsed / MAX_POLL_TIME) * 100, 100);
     setProgress(progressPercent);
 
-    if (elapsed >= MAX_POLL_TIME) {
+    if (elapsed >= MAX_POLL_TIME && !validQrLoadedRef.current) {
       cleanup();
       setPhase('failed');
       setErrorMessage('Timeout: Polling exceeded 120 seconds');
