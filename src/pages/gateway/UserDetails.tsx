@@ -72,6 +72,8 @@ export default function UserDetails() {
 
   // Disconnect state
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isRestarting, setIsRestarting] = useState(false);
+
 
   // Reset dialog state
   const [showResetDialog, setShowResetDialog] = useState(false);
