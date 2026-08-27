@@ -242,7 +242,29 @@ export default function UserDetails() {
     }
   };
 
+  const handleRestartInstance = async () => {
+    if (!id) return;
+    setIsRestarting(true);
+    try {
+      const op = await gatewayService.restartInstance(id);
+      if (!op.ok) throw new Error(op.error || 'Failed to restart instance');
+      toast({ title: 'Restarting', description: 'Container restarted. Refreshing status…' });
+      await new Promise((r) => setTimeout(r, 4000));
+      await fetchStatus(id);
+      toast({ title: 'Instance restarted', description: 'Status refreshed.' });
+    } catch (err) {
+      toast({
+        title: 'Restart failed',
+        description: err instanceof Error ? err.message : 'Failed to restart instance',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRestarting(false);
+    }
+  };
+
   const handleDisconnect = async () => {
+
     if (!id) return;
     setIsDisconnecting(true);
     try {
