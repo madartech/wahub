@@ -1,13 +1,21 @@
-# Replace QR preparation flow
+# Fix fake admin login
 
-## Implementation
-- Replace `useQrPreparation` with one generation-based lifecycle: provision and poll immediately, poll every 3 seconds, and reprovision every 12 seconds while active and unresolved.
-- Ignore stale asynchronous results after refresh, close, user change, or unmount; stop both intervals immediately when a valid `data:image/` QR or `WORKING`/`READY` status arrives.
-- Keep transient responses and request failures in the waiting state, with console-only diagnostic logging.
-- Make Refresh QR clear the current result, start a new generation, provision immediately, and restart both intervals; make reset clear timers and state.
-- Remove `QrDebugSummary` imports and rendering from QrDialog, UserDetails, and EmergencyResetDialog. Preserve only the calm waiting message and attempt count before the QR appears.
+Right now the login screen accepts any non-empty email and password. This change makes it accept only one configured admin credential pair.
 
-## Technical details
-- Preserve the hook’s current public return shape where useful so consumers require minimal changes, but remove deadline/error behavior from the active flow.
-- Keep RowActions using QrDialog; opening that dialog activates the shared hook automatically.
-- Verify TypeScript and the preview build signal after edits.
+## Changes
+
+1. `src/config/gateway.ts` — add two exported constants after `ADMIN_TOKEN`:
+   - `ADMIN_EMAIL` (default `admin@walinkme.com`, override via `VITE_GATEWAY_ADMIN_EMAIL`)
+   - `ADMIN_LOGIN_PASSWORD` (default `@dmin142242`, override via `VITE_GATEWAY_ADMIN_PASSWORD`)
+
+2. `src/contexts/GatewayAuthContext.tsx` — `login()` compares the entered email (trimmed, case-insensitive) and password against those constants, and only then sets `loggedIn` in localStorage. Everything else (context shape, `logout`, `useGatewayAuth`) stays the same.
+
+No UI changes: the existing login page already shows "Invalid email or password" when `login()` returns false.
+
+## Verification
+
+TypeScript/build check, plus a quick check that a wrong password is rejected and the correct pair reaches `/dashboard`.
+
+## Known limitation
+
+The API admin token (`X-Admin-Token`) is still bundled into the shipped JavaScript, so anyone with dev tools can read it and call the backend admin API directly. This change only blocks casual walk-up access to the dashboard UI. Closing that hole requires a real backend-verified login endpoint — a separate piece of work.
