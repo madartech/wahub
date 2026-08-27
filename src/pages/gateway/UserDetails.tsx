@@ -288,23 +288,24 @@ export default function UserDetails() {
 
     setIsSending(true);
     try {
-      // Get the user's token - use revealed token if available, otherwise fetch it
-      let token = revealedToken;
-      if (!token && id) {
-        const tokenResult = await gatewayService.getUserToken(id);
-        token = tokenResult.token;
-      }
-      
-      if (!token) {
-        throw new Error('Could not retrieve user token');
-      }
+      if (!id) throw new Error('Missing user id');
 
-      // Use the gateway send endpoint with Bearer token auth
-      await gatewayService.sendMessage(token, {
+      // Use the admin test-send endpoint (same one used by Gateway Operations)
+      const res = await gatewayService.adminTestSend(id, {
         to: phone,
         text: testMessage.trim(),
       });
-      
+
+      if (!res.ok) {
+        const detail = res.detail as any;
+        const reason = res.error || detail?.error || 'Unknown error';
+        throw new Error(
+          reason === 'waha_request_failed'
+            ? 'Gateway could not reach the WhatsApp engine for this instance. Try Restart Instance, then send again.'
+            : reason
+        );
+      }
+
       toast({
         title: 'Message Sent',
         description: `Sent to ${phone}`,
@@ -321,6 +322,7 @@ export default function UserDetails() {
       setIsSending(false);
     }
   };
+
 
   // Helper to get status badge
   const getStatusBadge = (state: UserConnectionState) => {
