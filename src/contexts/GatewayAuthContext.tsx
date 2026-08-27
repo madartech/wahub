@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { ADMIN_EMAIL, ADMIN_LOGIN_PASSWORD } from '@/config/gateway';
 
 interface GatewayAuthContextType {
   isLoggedIn: boolean;
@@ -14,14 +15,19 @@ export function GatewayAuthProvider({ children }: { children: ReactNode }) {
   });
 
   const login = (email: string, password: string): boolean => {
-    // Simple local validation (no backend auth yet)
-    if (email && password) {
+    // Validated against the configured admin credentials (see src/config/gateway.ts).
+    // Note: this only gates the dashboard UI — it does not replace proper backend-verified
+    // sessions, since the API admin token is still bundled in the client build.
+    const emailOk = email.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    const passwordOk = password === ADMIN_LOGIN_PASSWORD;
+    if (emailOk && passwordOk) {
       localStorage.setItem('loggedIn', 'true');
       setIsLoggedIn(true);
       return true;
     }
     return false;
   };
+
 
   const logout = () => {
     localStorage.removeItem('loggedIn');
