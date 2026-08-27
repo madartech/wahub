@@ -649,6 +649,16 @@ export default function UserDetails() {
                   <span className="font-medium">WhatsApp Connected</span>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleRestartInstance}
+                    disabled={isRestarting}
+                    className="h-11 min-h-[44px]"
+                  >
+                    {isRestarting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                    Restart Instance
+                  </Button>
+
                   <Button 
                     variant="outline" 
                     onClick={handleDisconnect}
