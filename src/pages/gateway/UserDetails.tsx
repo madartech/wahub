@@ -72,6 +72,8 @@ export default function UserDetails() {
 
   // Disconnect state
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isRestarting, setIsRestarting] = useState(false);
+
 
   // Reset dialog state
   const [showResetDialog, setShowResetDialog] = useState(false);
@@ -242,7 +244,29 @@ export default function UserDetails() {
     }
   };
 
+  const handleRestartInstance = async () => {
+    if (!id) return;
+    setIsRestarting(true);
+    try {
+      const op = await gatewayService.restartInstance(id);
+      if (!op.ok) throw new Error(op.error || 'Failed to restart instance');
+      toast({ title: 'Restarting', description: 'Container restarted. Refreshing status…' });
+      await new Promise((r) => setTimeout(r, 4000));
+      await fetchStatus(id);
+      toast({ title: 'Instance restarted', description: 'Status refreshed.' });
+    } catch (err) {
+      toast({
+        title: 'Restart failed',
+        description: err instanceof Error ? err.message : 'Failed to restart instance',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRestarting(false);
+    }
+  };
+
   const handleDisconnect = async () => {
+
     if (!id) return;
     setIsDisconnecting(true);
     try {
@@ -625,6 +649,16 @@ export default function UserDetails() {
                   <span className="font-medium">WhatsApp Connected</span>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleRestartInstance}
+                    disabled={isRestarting}
+                    className="h-11 min-h-[44px]"
+                  >
+                    {isRestarting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                    Restart Instance
+                  </Button>
+
                   <Button 
                     variant="outline" 
                     onClick={handleDisconnect}
@@ -646,17 +680,29 @@ export default function UserDetails() {
               </div>
             )}
 
-            {/* Reset button for non-connected states */}
+            {/* Restart + Reset buttons for non-connected states */}
             {!showConnectedInfo && !isProvisioning && connectionState !== 'provisioning' && (
-              <Button 
-                variant="outline" 
-                onClick={() => setShowResetDialog(true)}
-                className="h-11 min-h-[44px] text-destructive hover:text-destructive border-destructive/30 w-full sm:w-auto"
-              >
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Reset + Reconnect
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleRestartInstance}
+                  disabled={isRestarting}
+                  className="h-11 min-h-[44px] w-full sm:w-auto"
+                >
+                  {isRestarting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  Restart Instance
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowResetDialog(true)}
+                  className="h-11 min-h-[44px] text-destructive hover:text-destructive border-destructive/30 w-full sm:w-auto"
+                >
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Reset + Reconnect
+                </Button>
+              </div>
             )}
+
 
             {/* QR Modal */}
             {showQrModal && (
