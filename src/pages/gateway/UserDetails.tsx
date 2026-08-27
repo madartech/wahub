@@ -680,17 +680,29 @@ export default function UserDetails() {
               </div>
             )}
 
-            {/* Reset button for non-connected states */}
+            {/* Restart + Reset buttons for non-connected states */}
             {!showConnectedInfo && !isProvisioning && connectionState !== 'provisioning' && (
-              <Button 
-                variant="outline" 
-                onClick={() => setShowResetDialog(true)}
-                className="h-11 min-h-[44px] text-destructive hover:text-destructive border-destructive/30 w-full sm:w-auto"
-              >
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Reset + Reconnect
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleRestartInstance}
+                  disabled={isRestarting}
+                  className="h-11 min-h-[44px] w-full sm:w-auto"
+                >
+                  {isRestarting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  Restart Instance
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowResetDialog(true)}
+                  className="h-11 min-h-[44px] text-destructive hover:text-destructive border-destructive/30 w-full sm:w-auto"
+                >
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Reset + Reconnect
+                </Button>
+              </div>
             )}
+
 
             {/* QR Modal */}
             {showQrModal && (
