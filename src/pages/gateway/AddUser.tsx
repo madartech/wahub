@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,18 +16,35 @@ export default function AddUser() {
   const [userName, setUserName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inFlight = useRef(false);
 
   const handleCreateUser = async () => {
-    if (!userName.trim()) {
+    if (inFlight.current) return;
+    const name = userName.trim();
+    if (!name) {
       setError('Please enter a user name');
       return;
     }
 
+    inFlight.current = true;
     setIsCreating(true);
     setError(null);
 
     try {
-      const result = await gatewayService.createUser(userName.trim());
+      // Guard against creating the same account twice (duplicate rows in the list).
+      const existing = await gatewayService.getUsers();
+      if (
+        existing.ok &&
+        existing.users.some((u) => (u.name || '').trim().toLowerCase() === name.toLowerCase())
+      ) {
+        setError(`A user named "${name}" already exists. Open it from the users list instead of creating a new one.`);
+        setIsCreating(false);
+        inFlight.current = false;
+        return;
+      }
+
+      const result = await gatewayService.createUser(name);
+      
       
       toast({
         title: 'User created',
@@ -39,6 +56,7 @@ export default function AddUser() {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create user';
       setError(errorMessage);
       setIsCreating(false);
+      inFlight.current = false;
     }
   };
 
