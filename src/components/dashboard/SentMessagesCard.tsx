@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { MessageSquare, TrendingUp } from 'lucide-react';
 import { gatewayService } from '@/services/gateway';
-import { GatewayUser } from '@/types/gateway';
+import { GatewayUser, lastSentDateKey, sentToday } from '@/types/gateway';
 
 const WEEKLY_KEY = 'gateway_sent_daily_history_v1';
 
