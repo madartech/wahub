@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from 'react';
-import { GatewayUser } from '@/types/gateway';
+import { GatewayUser, sentThisHour, sentThisMinute, sentToday } from '@/types/gateway';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -185,7 +185,7 @@ export default function OperationsTable({ users, onChanged, onModalChange }: Pro
                           label="Sends (1m / 1h / 1d)"
                           value={
                             <span className="font-mono text-xs">
-                              {u.sendStats?.minute ?? 0} / {u.sendStats?.hour ?? 0} / {u.sendStats?.day ?? 0}
+                              {sentThisMinute(u.sendStats)} / {sentThisHour(u.sendStats)} / {sentToday(u.sendStats)}
                             </span>
                           }
                         />

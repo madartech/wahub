@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { MessageSquare, TrendingUp } from 'lucide-react';
 import { gatewayService } from '@/services/gateway';
-import { GatewayUser } from '@/types/gateway';
+import { GatewayUser, lastSentDateKey, sentToday } from '@/types/gateway';
 
 const WEEKLY_KEY = 'gateway_sent_daily_history_v1';
 
@@ -34,16 +34,15 @@ function writeHistory(history: DailySnapshot[]) {
   localStorage.setItem(WEEKLY_KEY, JSON.stringify(trimmed));
 }
 
-function recordToday(total: number): DailySnapshot[] {
+/** Merge per-date totals from the server into the local history (counters only grow per day). */
+function recordDays(byDate: Record<string, number>): DailySnapshot[] {
   const history = readHistory();
-  const today = todayKey();
-  const existingIdx = history.findIndex((h) => h.date === today);
-  if (existingIdx >= 0) {
-    // Take the max for the day (counter only grows then resets at midnight backend-side)
-    history[existingIdx] = { date: today, total: Math.max(history[existingIdx].total, total) };
-  } else {
-    history.push({ date: today, total });
+  for (const [date, total] of Object.entries(byDate)) {
+    const idx = history.findIndex((h) => h.date === date);
+    if (idx >= 0) history[idx] = { date, total: Math.max(history[idx].total, total) };
+    else history.push({ date, total });
   }
+  history.sort((a, b) => a.date.localeCompare(b.date));
   writeHistory(history);
   return history;
 }
@@ -69,11 +68,21 @@ export default function SentMessagesCard() {
         setError(res.error || 'Failed to load');
         return;
       }
+      // Server keeps one day-bucket per user; group by its date so older buckets
+      // still contribute to the 7-day figure.
+      const byDate: Record<string, number> = { [todayKey()]: 0 };
+      for (const u of res.users as GatewayUser[]) {
+        const date = lastSentDateKey(u.sendStats);
+        const count = u.sendStats?.dayCount ?? u.sendStats?.day ?? 0;
+        if (!date || !count) continue;
+        byDate[date] = (byDate[date] ?? 0) + count;
+      }
       const dayTotal = res.users.reduce(
-        (a: number, u: GatewayUser) => a + (u.sendStats?.day ?? 0),
+        (a: number, u: GatewayUser) => a + sentToday(u.sendStats),
         0,
       );
-      const history = recordToday(dayTotal);
+      byDate[todayKey()] = Math.max(byDate[todayKey()] ?? 0, dayTotal);
+      const history = recordDays(byDate);
       setToday(dayTotal);
       setWeek(sumLast7Days(history));
     })();
