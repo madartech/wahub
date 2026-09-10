@@ -12,8 +12,8 @@ interface PingSample {
   at: number;
 }
 
-const HISTORY_SIZE = 20;             // last 20 pings drive uptime %
-const POLL_INTERVAL_MS = 60 * 60_000; // 60 minutes
+const HISTORY_SIZE = 20;          // last 20 pings drive uptime %
+const POLL_INTERVAL_MS = 60_000;  // 1 minute
 const TIMEOUT_MS = 6_000;
 
 async function ping(): Promise<PingSample> {
@@ -53,10 +53,12 @@ function latencyTier(ms: number): { label: string; tone: string } {
 export default function VpsHealthCard() {
   const [history, setHistory] = useState<PingSample[]>([]);
   const [isChecking, setIsChecking] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(POLL_INTERVAL_MS / 1000);
   const mounted = useRef(true);
 
   const runPing = async () => {
     setIsChecking(true);
+    setSecondsLeft(POLL_INTERVAL_MS / 1000);
     const sample = await ping();
     if (!mounted.current) return;
     setHistory((prev) => [...prev, sample].slice(-HISTORY_SIZE));
@@ -65,11 +67,33 @@ export default function VpsHealthCard() {
 
   useEffect(() => {
     mounted.current = true;
-    runPing();
-    const id = window.setInterval(runPing, POLL_INTERVAL_MS);
+    let id: number | undefined;
+
+    const start = () => {
+      if (id != null) return;
+      runPing();
+      id = window.setInterval(runPing, POLL_INTERVAL_MS);
+    };
+    const stop = () => {
+      if (id != null) window.clearInterval(id);
+      id = undefined;
+    };
+
+    // Only poll while the tab is visible — no load on the VPS in background tabs.
+    if (document.visibilityState === 'visible') start();
+    const onVisibility = () => (document.visibilityState === 'visible' ? start() : stop());
+    document.addEventListener('visibilitychange', onVisibility);
+
+    const tick = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      setSecondsLeft((s) => (s <= 1 ? POLL_INTERVAL_MS / 1000 : s - 1));
+    }, 1000);
+
     return () => {
       mounted.current = false;
-      window.clearInterval(id);
+      stop();
+      window.clearInterval(tick);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
