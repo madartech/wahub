@@ -61,7 +61,7 @@ export default function SentMessagesCard() {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const load = async () => {
       const res = await gatewayService.getUsers();
       if (cancelled) return;
       if (!res.ok) {
