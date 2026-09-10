@@ -226,8 +226,9 @@ export default function VpsHealthCard() {
               );
             })}
           </div>
-          <p className="mt-1 text-[10px] text-muted-foreground">
-            Pinged every {Math.round(POLL_INTERVAL_MS / 60_000)} min · CPU / RAM / disk require a backend endpoint
+          <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">
+            Checked every minute · next check in {secondsLeft}s
+            {last ? ` · last ${new Date(last.at).toLocaleTimeString()}` : ''} · paused while this tab is in the background
           </p>
         </div>
       </CardContent>
