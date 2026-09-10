@@ -537,4 +537,15 @@ export const gatewayService = {
   getEgressIp(userId: string)                 { return this._adminOp('GET', `/admin/users/${userId}/egress-ip`); },
   bulkAssignProxy()                           { return this._adminOp('POST', '/admin/proxy/bulk-assign'); },
 
+  // ===== Message log (graceful 404 until backend patch is deployed) =====
+  getMessageLog(params: { page: number; pageSize: number; sort: string; dir: 'asc' | 'desc'; q?: string }) {
+    const qs = new URLSearchParams({
+      page: String(params.page),
+      pageSize: String(params.pageSize),
+      sort: params.sort,
+      dir: params.dir,
+      ...(params.q ? { q: params.q } : {}),
+    });
+    return this._adminOp('GET', `/admin/messages/log?${qs.toString()}`);
+  },
 };

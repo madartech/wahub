@@ -10,6 +10,7 @@ import Users from "@/pages/gateway/Users";
 import AddUser from "@/pages/gateway/AddUser";
 import UserDetails from "@/pages/gateway/UserDetails";
 import Operations from "@/pages/gateway/Operations";
+import MessageLog from "@/pages/gateway/MessageLog";
 import GatewayLayout from "@/components/layout/GatewayLayout";
 import NotFound from "@/pages/NotFound";
 
@@ -84,6 +85,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Operations />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/message-log"
+        element={
+          <ProtectedRoute>
+            <MessageLog />
           </ProtectedRoute>
         }
       />

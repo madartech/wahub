@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useGatewayAuth } from '@/contexts/GatewayAuthContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, LogOut, MessageSquare, Activity } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, MessageSquare, Activity, ScrollText } from 'lucide-react';
 import { InstallButton } from '@/components/InstallButton';
 import UsersCounterWidget from '@/components/layout/UsersCounterWidget';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -16,6 +16,7 @@ const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/users', label: 'Users', icon: Users },
   { to: '/admin/operations', label: 'Operations', icon: Activity },
+  { to: '/admin/message-log', label: 'Message Log', icon: ScrollText },
 ];
 
 export default function GatewayLayout({ children }: GatewayLayoutProps) {
