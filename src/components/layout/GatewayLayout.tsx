@@ -16,6 +16,7 @@ const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/users', label: 'Users', icon: Users },
   { to: '/admin/operations', label: 'Operations', icon: Activity },
+  { to: '/admin/message-log', label: 'Message Log', icon: ScrollText },
 ];
 
 export default function GatewayLayout({ children }: GatewayLayoutProps) {
