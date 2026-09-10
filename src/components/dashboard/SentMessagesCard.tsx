@@ -34,16 +34,15 @@ function writeHistory(history: DailySnapshot[]) {
   localStorage.setItem(WEEKLY_KEY, JSON.stringify(trimmed));
 }
 
-function recordToday(total: number): DailySnapshot[] {
+/** Merge per-date totals from the server into the local history (counters only grow per day). */
+function recordDays(byDate: Record<string, number>): DailySnapshot[] {
   const history = readHistory();
-  const today = todayKey();
-  const existingIdx = history.findIndex((h) => h.date === today);
-  if (existingIdx >= 0) {
-    // Take the max for the day (counter only grows then resets at midnight backend-side)
-    history[existingIdx] = { date: today, total: Math.max(history[existingIdx].total, total) };
-  } else {
-    history.push({ date: today, total });
+  for (const [date, total] of Object.entries(byDate)) {
+    const idx = history.findIndex((h) => h.date === date);
+    if (idx >= 0) history[idx] = { date, total: Math.max(history[idx].total, total) };
+    else history.push({ date, total });
   }
+  history.sort((a, b) => a.date.localeCompare(b.date));
   writeHistory(history);
   return history;
 }
