@@ -16,9 +16,59 @@ export type UserConnectionState =
   | 'connected';
 
 export interface SendStats {
+  // Legacy shape (older gateway builds)
   minute?: number;
   hour?: number;
   day?: number;
+  // Current gateway shape: rolling counters plus the window key they belong to
+  minuteKey?: number;
+  minuteCount?: number;
+  hourKey?: number;
+  hourCount?: number;
+  dayKey?: string; // YYYY-MM-DD (server local date)
+  dayCount?: number;
+  lastSentAt?: number; // epoch ms
+}
+
+function localDateKey(d = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Messages sent today. Returns 0 when the stored day window is stale. */
+export function sentToday(s?: SendStats): number {
+  if (!s) return 0;
+  if (typeof s.dayCount === 'number') {
+    return s.dayKey && s.dayKey !== localDateKey() ? 0 : s.dayCount;
+  }
+  return s.day ?? 0;
+}
+
+/** Messages sent in the current hour window. */
+export function sentThisHour(s?: SendStats): number {
+  if (!s) return 0;
+  if (typeof s.hourCount === 'number') {
+    const currentHourKey = Math.floor(Date.now() / 3_600_000);
+    return s.hourKey != null && s.hourKey !== currentHourKey ? 0 : s.hourCount;
+  }
+  return s.hour ?? 0;
+}
+
+/** Messages sent in the current minute window. */
+export function sentThisMinute(s?: SendStats): number {
+  if (!s) return 0;
+  if (typeof s.minuteCount === 'number') {
+    const currentMinuteKey = Math.floor(Date.now() / 60_000);
+    return s.minuteKey != null && s.minuteKey !== currentMinuteKey ? 0 : s.minuteCount;
+  }
+  return s.minute ?? 0;
+}
+
+/** The date the server last recorded a send for this user, if any. */
+export function lastSentDateKey(s?: SendStats): string | null {
+  if (!s) return null;
+  if (s.dayKey) return s.dayKey;
+  if (s.lastSentAt) return localDateKey(new Date(s.lastSentAt));
+  return null;
 }
 
 export interface GatewayUser {
