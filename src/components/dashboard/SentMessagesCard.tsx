@@ -61,7 +61,7 @@ export default function SentMessagesCard() {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const load = async () => {
       const res = await gatewayService.getUsers();
       if (cancelled) return;
       if (!res.ok) {
@@ -85,9 +85,20 @@ export default function SentMessagesCard() {
       const history = recordDays(byDate);
       setToday(dayTotal);
       setWeek(sumLast7Days(history));
-    })();
+      setError(null);
+    };
+    load();
+    const id = window.setInterval(() => {
+      if (document.visibilityState === 'visible') load();
+    }, 60000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') load();
+    };
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       cancelled = true;
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
 
