@@ -68,11 +68,21 @@ export default function SentMessagesCard() {
         setError(res.error || 'Failed to load');
         return;
       }
+      // Server keeps one day-bucket per user; group by its date so older buckets
+      // still contribute to the 7-day figure.
+      const byDate: Record<string, number> = { [todayKey()]: 0 };
+      for (const u of res.users as GatewayUser[]) {
+        const date = lastSentDateKey(u.sendStats);
+        const count = u.sendStats?.dayCount ?? u.sendStats?.day ?? 0;
+        if (!date || !count) continue;
+        byDate[date] = (byDate[date] ?? 0) + count;
+      }
       const dayTotal = res.users.reduce(
-        (a: number, u: GatewayUser) => a + (u.sendStats?.day ?? 0),
+        (a: number, u: GatewayUser) => a + sentToday(u.sendStats),
         0,
       );
-      const history = recordToday(dayTotal);
+      byDate[todayKey()] = Math.max(byDate[todayKey()] ?? 0, dayTotal);
+      const history = recordDays(byDate);
       setToday(dayTotal);
       setWeek(sumLast7Days(history));
     })();
