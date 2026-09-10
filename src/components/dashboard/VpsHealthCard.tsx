@@ -112,15 +112,19 @@ export default function VpsHealthCard() {
         ),
       );
 
+  const prev = history[history.length - 2];
+  const twoFailsInARow = !!last && !last.ok && !!prev && !prev.ok;
+  const isolatedFailure = !!last && !last.ok && !twoFailsInARow;
+
   const uptimeBad = uptimePct != null && uptimePct < 60;
   const latencyBad = avgLatency != null && avgLatency > 1500;
 
   const overall: 'online' | 'degraded' | 'offline' | 'checking' =
     history.length === 0
       ? 'checking'
-      : !last?.ok
+      : twoFailsInARow
         ? 'offline'
-        : uptimeBad || latencyBad
+        : isolatedFailure || uptimeBad || latencyBad
           ? 'degraded'
           : 'online';
 
@@ -132,10 +136,11 @@ export default function VpsHealthCard() {
 
   let statusReason = '';
   if (overall === 'online') statusReason = 'Gateway responding normally';
-  else if (overall === 'offline') statusReason = 'Last ping failed — gateway not responding';
+  else if (overall === 'offline') statusReason = 'Two checks in a row failed — gateway not responding';
   else if (overall === 'checking') statusReason = 'Running first health check…';
   else {
     const reasons: string[] = [];
+    if (isolatedFailure) reasons.push('one check failed');
     if (uptimeBad) reasons.push(`${successes.length}/${history.length} successful pings`);
     if (latencyBad) reasons.push(`avg ${avgLatency} ms`);
     statusReason = reasons.length ? `Degraded: ${reasons.join(' · ')}` : 'Reachable but unhealthy';
