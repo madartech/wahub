@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import GatewayLayout from '@/components/layout/GatewayLayout';
 import { gatewayService } from '@/services/gateway';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -98,7 +97,7 @@ export default function MessageLog() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <GatewayLayout>
+    <>
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -240,6 +239,6 @@ export default function MessageLog() {
           </CardContent>
         </Card>
       </div>
-    </GatewayLayout>
+    </>
   );
 }
