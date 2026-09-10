@@ -1,4 +1,4 @@
-import { GatewayUser } from '@/types/gateway';
+import { GatewayUser, sentThisHour, sentThisMinute, sentToday } from '@/types/gateway';
 import { Card } from '@/components/ui/card';
 import HealthBadge, { StatusBadge } from './HealthBadge';
 import RowActions from './RowActions';
@@ -39,7 +39,7 @@ export default function OperationsCards({ users, onChanged, onModalChange }: Pro
             </div>
             <div>
               <div className="text-muted-foreground">Sent 1m/1h/1d</div>
-              <div className="font-mono">{(u.sendStats?.minute ?? 0)}/{(u.sendStats?.hour ?? 0)}/{(u.sendStats?.day ?? 0)}</div>
+              <div className="font-mono">{sentThisMinute(u.sendStats)}/{sentThisHour(u.sendStats)}/{sentToday(u.sendStats)}</div>
             </div>
             <div>
               <div className="text-muted-foreground">Container</div>
