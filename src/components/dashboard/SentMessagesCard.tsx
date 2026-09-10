@@ -85,9 +85,20 @@ export default function SentMessagesCard() {
       const history = recordDays(byDate);
       setToday(dayTotal);
       setWeek(sumLast7Days(history));
-    })();
+      setError(null);
+    };
+    load();
+    const id = window.setInterval(() => {
+      if (document.visibilityState === 'visible') load();
+    }, 60000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') load();
+    };
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       cancelled = true;
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
 
