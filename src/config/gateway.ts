@@ -7,6 +7,8 @@ export const ADMIN_TOKEN = import.meta.env.VITE_GATEWAY_ADMIN_TOKEN || '@dmin142
 // Credentials required to sign into this dashboard (separate from the API admin token above).
 // Set VITE_GATEWAY_ADMIN_EMAIL / VITE_GATEWAY_ADMIN_PASSWORD in your environment to override.
 export const ADMIN_EMAIL = import.meta.env.VITE_GATEWAY_ADMIN_EMAIL || 'admin@walinkme.com';
+// Owner email(s) that may also sign in (same password).
+export const ADMIN_EMAILS = [ADMIN_EMAIL, 'info@madargps.com'];
 export const ADMIN_LOGIN_PASSWORD = import.meta.env.VITE_GATEWAY_ADMIN_PASSWORD || '@dmin142242';
 
 
