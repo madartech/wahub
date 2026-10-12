@@ -127,7 +127,7 @@ export default function VpsHealthCard() {
   const badge =
     result == null ? <Badge variant="secondary">Reading…</Badge>
     : result.kind === 'unreachable' ? <Badge variant="destructive">Server not answering</Badge>
-    : result.kind === 'unsupported' ? <Badge variant="secondary">Metrics add-on not installed</Badge>
+    : result.kind === 'unsupported' ? <Badge className="bg-success text-success-foreground">Online</Badge>
     : overall === 'healthy' ? <Badge className="bg-success text-success-foreground">Healthy</Badge>
     : overall === 'strained' ? <Badge className="bg-warning text-warning-foreground">Under load</Badge>
     : <Badge variant="destructive">Critical</Badge>;
@@ -135,7 +135,7 @@ export default function VpsHealthCard() {
   let reason = '';
   if (result == null) reason = 'Reading server resources…';
   else if (result.kind === 'unreachable') reason = 'No reply from the server';
-  else if (result.kind === 'unsupported') reason = 'Install the metrics add-on on the server to see CPU, memory and disk';
+  else if (result.kind === 'unsupported') reason = 'Server is answering';
   else if (overall === 'healthy') reason = `${m!.host.hostname} · up ${fmtUptime(m!.host.uptimeSeconds)}`;
   else {
     const r: string[] = [];
@@ -169,6 +169,7 @@ export default function VpsHealthCard() {
           </Button>
         </div>
 
+        {result?.kind !== 'unsupported' && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Gauge
             icon={<Cpu className="h-3.5 w-3.5" />}
@@ -189,6 +190,7 @@ export default function VpsHealthCard() {
             sub={m?.disk ? `${fmtBytes(m.disk.used)} of ${fmtBytes(m.disk.total)}` : undefined}
           />
         </div>
+        )}
 
         {m && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
