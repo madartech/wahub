@@ -597,7 +597,7 @@ export default function Users() {
   }, [filteredUsers, statusSort]);
 
   const cycleStatusSort = () => {
-    setStatusSort((s) => (s === 'none' ? 'asc' : s === 'asc' ? 'desc' : 'none'));
+    setStatusSort((s) => (s === 'asc' ? 'none' : 'asc'));
     setCurrentPage(1);
   };
 
