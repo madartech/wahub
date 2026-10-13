@@ -293,6 +293,26 @@ export const gatewayService = {
   },
 
 
+  // Bulk statuses from the server-side status cache (one fast call).
+  // Returns notDeployed=true when the add-on isn't installed (callers fall back).
+  async getAllStatuses(): Promise<{
+    ok: boolean;
+    notDeployed?: boolean;
+    statuses: Record<string, { status: SessionStatus; me?: { id?: string; pushName?: string } | null }>;
+  }> {
+    try {
+      const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/statuses?_t=${Date.now()}`, {
+        headers: { 'X-Admin-Token': ADMIN_TOKEN },
+        cache: 'no-store',
+      });
+      if (!res.ok) return { ok: false, notDeployed: res.status === 404, statuses: {} };
+      const data = await res.json();
+      return { ok: true, statuses: data.statuses || {} };
+    } catch {
+      return { ok: false, statuses: {} };
+    }
+  },
+
   // Get user status - returns full session info (with 5s timeout)
   async getUserStatus(userId: string): Promise<UserStatusResponse> {
     const controller = new AbortController();
