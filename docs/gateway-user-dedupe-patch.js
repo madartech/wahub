@@ -8,7 +8,7 @@
 // `app.post('/admin/users', ...)` route:
 //
 //   const { attachUserDedupe } = require('./user-dedupe-patch');
-//   attachUserDedupe(app, { listUsers: () => <your function returning the users array> });
+//   attachUserDedupe(app, { auth: requireAdmin, listUsers: () => <your function returning the users array> });
 //
 // `listUsers` may be sync or async and must return [{ id, name, token, instanceId }].
 
@@ -16,11 +16,12 @@ function norm(s) {
   return String(s || '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
-function attachUserDedupe(app, { listUsers, gatewayUrl } = {}) {
+function attachUserDedupe(app, { listUsers, gatewayUrl, auth } = {}) {
   if (typeof listUsers !== 'function') throw new Error('attachUserDedupe: listUsers required');
   const pending = new Map(); // name -> Promise that resolves when the in-flight create finishes
 
-  app.post('/admin/users', async (req, res, next) => {
+  const guard = typeof auth === 'function' ? auth : (req, res, next) => next();
+  app.post('/admin/users', guard, async (req, res, next) => {
     const key = norm(req.body && req.body.name);
     if (!key) return next();
 
