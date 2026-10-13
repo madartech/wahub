@@ -48,6 +48,13 @@ interface UserItemProps {
   isDisconnecting: boolean;
 }
 
+function formatSince(ms?: number | null) {
+  if (!ms) return '—';
+  const d = new Date(ms);
+  return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) +
+    ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
 function getStatusBadge(state: UserConnectionState) {
   switch (state) {
     case 'connected':
@@ -176,7 +183,12 @@ function UserCard({ user, index, connectionState, navigate, onDelete, onDisconne
             <p className="font-mono text-sm text-muted-foreground">{user.phoneNumber}</p>
           )}
         </div>
-        {getStatusBadge(connectionState)}
+        <div className="flex flex-col items-end gap-1">
+          {getStatusBadge(connectionState)}
+          {connectionState === 'connected' && user.connectedSince ? (
+            <span className="text-[10px] text-muted-foreground">since {formatSince(user.connectedSince)}</span>
+          ) : null}
+        </div>
       </div>
 
       <div className="space-y-2 text-sm">
@@ -266,6 +278,9 @@ function UserRow({ user, index, connectionState, navigate, onDelete, onDisconnec
       </TableCell>
       <TableCell className="py-1.5">
         {getStatusBadge(connectionState)}
+      </TableCell>
+      <TableCell className="py-1.5 text-xs text-muted-foreground whitespace-nowrap">
+        {connectionState === 'connected' ? formatSince(user.connectedSince) : '—'}
       </TableCell>
       <TableCell className="py-1.5">
         {user.instanceId ? (
@@ -449,7 +464,7 @@ export default function Users() {
             if (!b) return u;
             const phone = b.me?.id || u.phoneNumber;
             saveLastPhone(u.id, phone);
-            return { ...u, sessionStatus: statusCache.get(u.id) ?? u.sessionStatus, phoneNumber: phone, me: b.me ?? u.me };
+            return { ...u, sessionStatus: statusCache.get(u.id) ?? u.sessionStatus, phoneNumber: phone, me: b.me ?? u.me, connectedSince: b.connectedSince ?? null };
           }),
         );
         return;
@@ -682,6 +697,7 @@ export default function Users() {
                         <TableHead>Name</TableHead>
                         <TableHead>Phone</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Connected since</TableHead>
                         <TableHead>Instance</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -692,6 +708,7 @@ export default function Users() {
                           <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                           <TableCell><Skeleton className="h-5 w-28" /></TableCell>
                           <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                          <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                           <TableCell><Skeleton className="h-5 w-36" /></TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
@@ -755,6 +772,7 @@ export default function Users() {
                             )}
                           </button>
                         </TableHead>
+                        <TableHead>Connected since</TableHead>
                         <TableHead>Instance</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>

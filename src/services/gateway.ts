@@ -299,7 +299,7 @@ export const gatewayService = {
     ok: boolean;
     notDeployed?: boolean;
     refreshedAt?: number;
-    statuses: Record<string, { status: SessionStatus; me?: { id?: string; pushName?: string } | null }>;
+    statuses: Record<string, { status: SessionStatus; connectedSince?: number | null; me?: { id?: string; pushName?: string } | null }>;
   }> {
     try {
       const res = await fetch(`${GATEWAY_BASE_URL}/admin/users/statuses?_t=${Date.now()}`, {
