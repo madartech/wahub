@@ -93,6 +93,8 @@ export interface GatewayUser {
   sendStats?: SendStats;
   containerStatus?: string;
   statusChangedAt?: string | null;
+  /** ms epoch when the account last became connected (from the server status cache) */
+  connectedSince?: number | null;
 }
 
 export function getConnectionState(status?: SessionStatus): UserConnectionState {

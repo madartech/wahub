@@ -1,9 +1,9 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useGatewayAuth } from '@/contexts/GatewayAuthContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, LogOut, MessageSquare, Activity, ScrollText } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, MessageSquare, Activity, ScrollText, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { InstallButton } from '@/components/InstallButton';
 import UsersCounterWidget from '@/components/layout/UsersCounterWidget';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -22,6 +22,8 @@ const navItems = [
 export default function GatewayLayout({ children }: GatewayLayoutProps) {
   const { logout } = useGatewayAuth();
   const navigate = useNavigate();
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebar-collapsed') === '1');
+  useEffect(() => { localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0'); }, [collapsed]);
 
   const handleLogout = () => {
     logout();
@@ -55,8 +57,40 @@ export default function GatewayLayout({ children }: GatewayLayoutProps) {
         </div>
       </header>
 
+      {/* Desktop Sidebar (collapsed rail) */}
+      {collapsed && (
+        <aside className="hidden md:flex w-16 border-r border-border bg-sidebar flex-col items-center py-4 gap-2">
+          <Button variant="ghost" size="icon" onClick={() => setCollapsed(false)} title="Show sidebar" aria-label="Show sidebar">
+            <PanelLeftOpen className="h-5 w-5" />
+          </Button>
+          <nav className="flex flex-col gap-1 mt-2">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                title={item.label}
+                className={({ isActive }) =>
+                  cn(
+                    'flex h-10 w-10 items-center justify-center rounded-lg transition-colors',
+                    isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50',
+                  )
+                }
+              >
+                <item.icon className="h-5 w-5" />
+              </NavLink>
+            ))}
+          </nav>
+          <div className="mt-auto flex flex-col items-center gap-1">
+            <ThemeToggle />
+            <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout" aria-label="Logout">
+              <LogOut className="h-5 w-5" />
+            </Button>
+          </div>
+        </aside>
+      )}
+
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 border-r border-border bg-sidebar flex-col">
+      <aside className={cn("hidden w-64 border-r border-border bg-sidebar flex-col", !collapsed && "md:flex")}>
         <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -68,6 +102,9 @@ export default function GatewayLayout({ children }: GatewayLayoutProps) {
                 <p className="text-xs text-muted-foreground">Gateway Admin</p>
               </div>
             </div>
+            <Button variant="ghost" size="icon" onClick={() => setCollapsed(true)} title="Hide sidebar" aria-label="Hide sidebar">
+              <PanelLeftClose className="h-5 w-5" />
+            </Button>
           </div>
           {/* Users counter */}
           <div className="mt-4">

@@ -15,6 +15,7 @@
 //   require('./status-cache-patch').attachStatusCache(app, { auth: requireAdmin, listUsers: () => [...] });
 
 const http = require('http');
+const fs = require('fs');
 
 function attachStatusCache(app, { auth, listUsers, port = 4000, intervalMs = 30_000, concurrency = 8,
   autoRestartFailed = true, restartCooldownMs = 30 * 60_000, maxRestartsPerCycle = 3 } = {}) {
@@ -26,6 +27,16 @@ function attachStatusCache(app, { auth, listUsers, port = 4000, intervalMs = 30_
   let running = false;
   let timer = null;
   const lastRestart = new Map(); // id -> ms
+  // When each account last became connected (persisted across restarts).
+  const SINCE_FILE = process.env.CONNECTED_SINCE_FILE || '/opt/madar-gateway/connected-since.json';
+  let since = {};
+  try { since = JSON.parse(fs.readFileSync(SINCE_FILE, 'utf8')) || {}; } catch {}
+  function trackSince(id, status) {
+    const before = since[id];
+    if (status === 'WORKING' || status === 'READY') { if (!since[id]) since[id] = Date.now(); }
+    else if (status !== 'STARTING' && status !== 'UNKNOWN') delete since[id];
+    return before !== since[id];
+  }
 
   function restart(id) {
     return new Promise((resolve) => {
@@ -68,15 +79,18 @@ function attachStatusCache(app, { auth, listUsers, port = 4000, intervalMs = 30_
       const ids = new Set(users.map((u) => u.id));
       for (const id of cache.keys()) if (!ids.has(id)) cache.delete(id);
       const queue = users.map((u) => u.id);
+      let sinceDirty = false;
+      for (const id of Object.keys(since)) if (!ids.has(id)) { delete since[id]; sinceDirty = true; }
       await Promise.all(Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
         while (queue.length) {
           const id = queue.shift();
           const r = await getStatus(id);
-          if (r) cache.set(id, { ...r, updatedAt: Date.now() });
+          if (r) { cache.set(id, { ...r, updatedAt: Date.now() }); if (trackSince(id, r.status)) sinceDirty = true; }
           // r === null: keep the last known value
         }
       }));
       refreshedAt = Date.now();
+      if (sinceDirty) { try { fs.writeFileSync(SINCE_FILE, JSON.stringify(since)); } catch (e) { console.error('[STATUS-CACHE] save since failed', e.message); } }
       if (autoRestartFailed) {
         const now = Date.now();
         const due = [...cache].filter(([id, v]) => v.status === 'FAILED' && now - (lastRestart.get(id) || 0) > restartCooldownMs)
@@ -102,7 +116,7 @@ function attachStatusCache(app, { auth, listUsers, port = 4000, intervalMs = 30_
       await refresh(); // first call warms the cache
     }
     const statuses = {};
-    for (const [id, v] of cache) statuses[id] = v;
+    for (const [id, v] of cache) statuses[id] = { ...v, connectedSince: since[id] || null };
     res.json({ ok: true, refreshedAt, statuses });
   });
 
