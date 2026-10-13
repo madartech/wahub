@@ -639,7 +639,7 @@ export default function UserDetails() {
                   <CheckCircle className="h-5 w-5" />
                   <span className="font-medium">WhatsApp Connected</span>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
                     onClick={handleRestartInstance}
@@ -673,7 +673,7 @@ export default function UserDetails() {
 
             {/* Restart + Reset buttons for non-connected states */}
             {!showConnectedInfo && !isProvisioning && connectionState !== 'provisioning' && (
-              <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
                   onClick={handleRestartInstance}
