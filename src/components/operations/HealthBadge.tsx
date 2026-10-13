@@ -26,7 +26,7 @@ export function deriveHealth(user: GatewayUser): { level: HealthLevel; label: st
       return { level: 'starting', label: 'Starting…' };
     }
     case 'FAILED':
-      return { level: 'failed', label: 'Failed' };
+      return { level: 'needs_qr', label: 'Needs QR' };
     case 'STOPPED':
     case 'UNKNOWN':
     default:
