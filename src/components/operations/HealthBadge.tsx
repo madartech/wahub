@@ -17,7 +17,7 @@ export function deriveHealth(user: GatewayUser): { level: HealthLevel; label: st
   switch (status) {
     case 'WORKING':
     case 'READY':
-      return { level: 'healthy', label: 'Healthy' };
+      return { level: 'healthy', label: 'Connected' };
     case 'SCAN_QR_CODE':
       return { level: 'needs_qr', label: 'Ready to scan' };
     case 'STARTING': {
