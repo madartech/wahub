@@ -44,12 +44,38 @@ export default function Operations() {
       setLoading(false);
       return;
     }
-    // Show list immediately with cached status, then enrich live with capped concurrency
-    setUsers(list.users as GatewayUser[]);
+    // Show list immediately with cached status, then enrich
+    const withCached = (list.users as GatewayUser[]).map((u) => ({
+      ...u,
+      sessionStatus: statusCache.get(u.id) ?? u.sessionStatus,
+    }));
+    setUsers(withCached);
+
+    // Fast path: one call returns every status from the server cache.
+    const bulk = await gatewayService.getAllStatuses();
+    if (bulk.ok) {
+      statusCache.setMany(
+        Object.entries(bulk.statuses).map(([id, v]) => ({ id, status: (v.status || 'UNKNOWN') as SessionStatus })),
+      );
+      setUsers(withCached.map((u) => {
+        const b = bulk.statuses[u.id];
+        if (!b) return u;
+        return {
+          ...u,
+          sessionStatus: statusCache.get(u.id) ?? u.sessionStatus,
+          phoneNumber: b.me?.id ?? u.phoneNumber ?? null,
+          pushName: b.me?.pushName ?? u.pushName ?? null,
+          me: b.me ?? u.me ?? null,
+        } as GatewayUser;
+      }));
+      setLastRefresh(new Date());
+      setLoading(false);
+      return;
+    }
 
     const queue = [...list.users];
     const concurrency = 6;
-    const enriched: GatewayUser[] = [...(list.users as GatewayUser[])];
+    const enriched: GatewayUser[] = [...withCached];
     const byId = new Map(enriched.map((u, i) => [u.id, i] as const));
 
     await Promise.all(
@@ -58,8 +84,8 @@ export default function Operations() {
           const u = queue.shift()!;
           try {
             const s = await gatewayService.getUserStatus(u.id);
-            const newStatus = (s.session?.status || u.sessionStatus || 'UNKNOWN') as SessionStatus;
-            statusCache.set(u.id, newStatus);
+            statusCache.set(u.id, (s.session?.status || 'UNKNOWN') as SessionStatus);
+            const newStatus = (statusCache.get(u.id) || 'UNKNOWN') as SessionStatus;
             const idx = byId.get(u.id);
 
             if (idx !== undefined) {
