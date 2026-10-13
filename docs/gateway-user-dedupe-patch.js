@@ -35,13 +35,16 @@ function attachUserDedupe(app, { listUsers, gatewayUrl, auth } = {}) {
       const existing = users.find((u) => norm(u.name) === key);
       if (existing) {
         console.info('[DEDUPE] returning existing user for', key, existing.id);
+        // Same shape as a normal create ({ ok, user, token }) so existing clients
+        // (e.g. CardPro) read it the same way; flat fields kept for compatibility.
         return res.status(200).json({
           ok: true,
           duplicate: true,
+          user: { id: existing.id, name: existing.name, instanceId: existing.instanceId },
+          token: existing.token,
           id: existing.id,
           name: existing.name,
           instanceId: existing.instanceId,
-          token: existing.token,
           gatewayUrl: gatewayUrl || undefined,
         });
       }
