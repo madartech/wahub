@@ -298,6 +298,7 @@ export const gatewayService = {
   async getAllStatuses(): Promise<{
     ok: boolean;
     notDeployed?: boolean;
+    refreshedAt?: number;
     statuses: Record<string, { status: SessionStatus; me?: { id?: string; pushName?: string } | null }>;
   }> {
     try {
@@ -307,7 +308,7 @@ export const gatewayService = {
       });
       if (!res.ok) return { ok: false, notDeployed: res.status === 404, statuses: {} };
       const data = await res.json();
-      return { ok: true, statuses: data.statuses || {} };
+      return { ok: true, refreshedAt: data.refreshedAt, statuses: data.statuses || {} };
     } catch {
       return { ok: false, statuses: {} };
     }

@@ -26,16 +26,31 @@ function countFrom(list: GatewayUser[]): Counts {
 export default function UsersCounterWidget({ className }: { className?: string }) {
   const [counts, setCounts] = useState<Counts | null>(null);
   const usersRef = useRef<GatewayUser[]>([]);
+  const listAtRef = useRef(0);
+  const [serverAt, setServerAt] = useState<number | null>(null);
+  const [now, setNow] = useState(Date.now());
+  const [flash, setFlash] = useState(false);
+  const prevOnRef = useRef<number | null>(null);
 
   const recompute = useCallback(() => {
-    setCounts(countFrom(usersRef.current));
+    const c = countFrom(usersRef.current);
+    if (prevOnRef.current !== null && prevOnRef.current !== c.connected) {
+      setFlash(true);
+      setTimeout(() => setFlash(false), 1200);
+    }
+    prevOnRef.current = c.connected;
+    setCounts(c);
   }, []);
 
   const fetchAndEnrich = useCallback(async () => {
-    const list = await gatewayService.getUsers();
-    if (!list.ok) return;
-    usersRef.current = list.users;
-    recompute();
+    // Account list changes rarely: refresh it every 60s; statuses every 10s.
+    if (!usersRef.current.length || Date.now() - listAtRef.current > 60_000) {
+      const list = await gatewayService.getUsers();
+      if (!list.ok) return;
+      usersRef.current = list.users;
+      listAtRef.current = Date.now();
+    }
+    const list = { users: usersRef.current };
 
     // Fast path: one call returns every account's status from the server cache.
     const bulk = await gatewayService.getAllStatuses();
@@ -43,6 +58,8 @@ export default function UsersCounterWidget({ className }: { className?: string }
       statusCache.setMany(
         Object.entries(bulk.statuses).map(([id, v]) => ({ id, status: (v.status || 'UNKNOWN') as SessionStatus })),
       );
+      setServerAt(bulk.refreshedAt || Date.now());
+      recompute();
       return;
     }
 
@@ -71,10 +88,12 @@ export default function UsersCounterWidget({ className }: { className?: string }
 
   useEffect(() => {
     fetchAndEnrich();
-    const id = setInterval(fetchAndEnrich, 30_000);
+    const id = setInterval(fetchAndEnrich, 10_000);
+    const tick = setInterval(() => setNow(Date.now()), 1000);
     const unsub = statusCache.subscribe(recompute);
     return () => {
       clearInterval(id);
+      clearInterval(tick);
       unsub();
     };
   }, [fetchAndEnrich, recompute]);
@@ -108,12 +127,23 @@ export default function UsersCounterWidget({ className }: { className?: string }
   );
 
   const placeholder = counts === null;
+  const ageS = serverAt ? Math.max(0, Math.round((now - serverAt) / 1000)) : null;
+  const live = ageS !== null && ageS < 90;
 
   return (
     <div className={cn('flex flex-col gap-1 w-full', className)}>
       <Item icon={Users} value={placeholder ? '–' : counts!.total} label="Total" tone="total" />
-      <Item icon={CheckCircle2} value={placeholder ? '–' : counts!.connected} label="On" tone="on" />
+      <div className={cn('rounded-md transition-shadow duration-500', flash && 'ring-2 ring-success')}>
+        <Item icon={CheckCircle2} value={placeholder ? '–' : counts!.connected} label="On" tone="on" />
+      </div>
       <Item icon={XCircle} value={placeholder ? '–' : counts!.disconnected} label="Off" tone="off" />
+      <div className="flex items-center gap-1.5 px-1 text-[10px] text-muted-foreground" title="Checked by the server every 30 seconds">
+        <span className="relative flex h-2 w-2">
+          {live && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />}
+          <span className={cn('relative inline-flex h-2 w-2 rounded-full', live ? 'bg-success' : 'bg-muted-foreground')} />
+        </span>
+        <span>{ageS === null ? 'Connecting…' : live ? `Live · updated ${ageS}s ago` : `Not live · last update ${Math.round(ageS / 60)}m ago`}</span>
+      </div>
     </div>
   );
 }
