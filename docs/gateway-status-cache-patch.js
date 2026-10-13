@@ -7,12 +7,17 @@
 // instantly from memory. A failed or timed-out check keeps the last known status,
 // so one slow check no longer flips an account to "off".
 //
+// Auto-recover: an account reported FAILED gets one quiet restart, then at most
+// one more every 30 minutes (max 3 restarts per refresh cycle), so it lands back
+// on "waiting for QR" without hammering WhatsApp's linking limits.
+//
 // Install in server.js right ABOVE the `app.post("/admin/users", requireAdmin,` line:
 //   require('./status-cache-patch').attachStatusCache(app, { auth: requireAdmin, listUsers: () => [...] });
 
 const http = require('http');
 
-function attachStatusCache(app, { auth, listUsers, port = 4000, intervalMs = 30_000, concurrency = 8 } = {}) {
+function attachStatusCache(app, { auth, listUsers, port = 4000, intervalMs = 30_000, concurrency = 8,
+  autoRestartFailed = true, restartCooldownMs = 30 * 60_000, maxRestartsPerCycle = 3 } = {}) {
   if (typeof listUsers !== 'function') throw new Error('attachStatusCache: listUsers required');
   const guard = typeof auth === 'function' ? auth : (q, s, n) => n();
   const cache = new Map(); // id -> { status, me, updatedAt }
@@ -20,6 +25,19 @@ function attachStatusCache(app, { auth, listUsers, port = 4000, intervalMs = 30_
   let refreshedAt = 0;
   let running = false;
   let timer = null;
+  const lastRestart = new Map(); // id -> ms
+
+  function restart(id) {
+    return new Promise((resolve) => {
+      const req = http.request({
+        host: '127.0.0.1', port, method: 'POST', path: `/admin/users/${encodeURIComponent(id)}/restart`,
+        headers: { 'X-Admin-Token': adminToken, 'Content-Type': 'application/json', 'Content-Length': 2 }, timeout: 30_000,
+      }, (res) => { res.resume(); res.on('end', () => resolve(res.statusCode < 300)); });
+      req.on('timeout', () => { req.destroy(); resolve(false); });
+      req.on('error', () => resolve(false));
+      req.end('{}');
+    });
+  }
 
   function getStatus(id) {
     return new Promise((resolve) => {
@@ -59,6 +77,17 @@ function attachStatusCache(app, { auth, listUsers, port = 4000, intervalMs = 30_
         }
       }));
       refreshedAt = Date.now();
+      if (autoRestartFailed) {
+        const now = Date.now();
+        const due = [...cache].filter(([id, v]) => v.status === 'FAILED' && now - (lastRestart.get(id) || 0) > restartCooldownMs)
+          .slice(0, maxRestartsPerCycle);
+        for (const [id] of due) {
+          lastRestart.set(id, now);
+          const ok = await restart(id);
+          console.log(`[STATUS-CACHE] auto-restart FAILED ${id}: ${ok ? 'ok' : 'error'}`);
+          if (ok) cache.set(id, { ...cache.get(id), status: 'STARTING', updatedAt: Date.now() });
+        }
+      }
     } catch (e) {
       console.error('[STATUS-CACHE] refresh failed', e);
     } finally {
