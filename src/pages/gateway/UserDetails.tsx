@@ -77,7 +77,6 @@ export default function UserDetails() {
 
   // Reset dialog state
   const [showResetDialog, setShowResetDialog] = useState(false);
-  const [showPairDialog, setShowPairDialog] = useState(false);
 
   // Shared QR preparation flow (auto-provision on open/12s, 3s QR polling)
   const qr = useQrPreparation({
