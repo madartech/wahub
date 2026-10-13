@@ -13,7 +13,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import EmergencyResetDialog from '@/components/gateway/EmergencyResetDialog';
-import PairingCodeDialog from '@/components/operations/dialogs/PairingCodeDialog';
 
 import { useQrPreparation } from '@/hooks/useQrPreparation';
 import { statusCache } from '@/services/statusCache';
