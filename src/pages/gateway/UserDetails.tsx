@@ -354,12 +354,12 @@ export default function UserDetails() {
       case 'connected':
         return <Badge className="bg-success text-success-foreground">Connected</Badge>;
       case 'scan_qr':
-        return <Badge className="bg-warning text-warning-foreground">Scan QR</Badge>;
+        return <Badge className="bg-warning text-warning-foreground">Ready to scan</Badge>;
       case 'provisioning':
-        return <Badge variant="secondary">Provisioning...</Badge>;
+        return <Badge variant="secondary">Starting…</Badge>;
       case 'not_provisioned':
       default:
-        return <Badge variant="secondary">Not Provisioned</Badge>;
+        return <Badge variant="secondary">Not connected</Badge>;
     }
   };
 

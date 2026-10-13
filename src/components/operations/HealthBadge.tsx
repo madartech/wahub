@@ -19,14 +19,14 @@ export function deriveHealth(user: GatewayUser): { level: HealthLevel; label: st
     case 'READY':
       return { level: 'healthy', label: 'Healthy' };
     case 'SCAN_QR_CODE':
-      return { level: 'needs_qr', label: 'Needs QR' };
+      return { level: 'needs_qr', label: 'Ready to scan' };
     case 'STARTING': {
       const since = user.statusChangedAt ? new Date(user.statusChangedAt).getTime() : 0;
       if (since && now - since > STUCK_AFTER_MS) return { level: 'stuck', label: 'Stuck starting' };
       return { level: 'starting', label: 'Starting…' };
     }
     case 'FAILED':
-      return { level: 'needs_qr', label: 'Needs QR' };
+      return { level: 'needs_qr', label: 'Ready to scan' };
     case 'STOPPED':
     case 'UNKNOWN':
     default:
