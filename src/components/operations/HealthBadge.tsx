@@ -26,11 +26,11 @@ export function deriveHealth(user: GatewayUser): { level: HealthLevel; label: st
       return { level: 'starting', label: 'Starting…' };
     }
     case 'FAILED':
-      return { level: 'needs_qr', label: 'Ready to scan' };
+      return { level: 'offline', label: 'Not connected' };
     case 'STOPPED':
     case 'UNKNOWN':
     default:
-      return { level: 'offline', label: 'Offline' };
+      return { level: 'offline', label: 'Not connected' };
   }
 }
 
