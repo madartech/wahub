@@ -85,6 +85,22 @@ export function useQrPreparation({
           setDataUrl(r.dataUrl);
           setRefreshing(false);
           onQrLoadedRef.current?.();
+          // Keep watching the real session status (the QR endpoint can serve a
+          // cached image after the scan), and close out once it's connected.
+          const watchGen = genRef.current;
+          pollRef.current = setInterval(async () => {
+            if (watchGen !== genRef.current) return;
+            const st = await gatewayService.getUserStatus(id);
+            if (watchGen !== genRef.current) return;
+            const s = st.session?.status;
+            if (s === 'WORKING' || s === 'READY') {
+              genRef.current += 1;
+              clearTimers();
+              setDataUrl(null);
+              setConnected(true);
+              onConnectedRef.current?.();
+            }
+          }, QR_POLL_INTERVAL_MS);
           return;
         }
 

@@ -90,7 +90,8 @@ export default function UserDetails() {
     onConnected: () => {
       qrFlowActiveRef.current = false;
       setShowQrModal(false);
-      toast({ title: 'Connected', description: 'WhatsApp is already connected.' });
+      toast({ title: 'Connected', description: 'WhatsApp is connected.' });
+      if (id) statusCache.set(id, 'WORKING');
       if (id) void fetchStatusRef.current?.(id);
     },
   });
