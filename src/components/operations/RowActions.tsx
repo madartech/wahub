@@ -16,7 +16,6 @@ import PauseDialog from './dialogs/PauseDialog';
 import TestSendDialog from './dialogs/TestSendDialog';
 import LogsDialog from './dialogs/LogsDialog';
 import QrDialog from './dialogs/QrDialog';
-import PairingCodeDialog from './dialogs/PairingCodeDialog';
 import ProxyDialog from './dialogs/ProxyDialog';
 
 interface Props {
@@ -32,12 +31,11 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
   const [testOpen, setTestOpen] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
-  const [pairOpen, setPairOpen] = useState(false);
   const [proxyOpen, setProxyOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const failuresRef = useRef(0);
 
-  const anyModal = confirmRemove || confirmReset || pauseOpen || testOpen || logsOpen || qrOpen || pairOpen || proxyOpen;
+  const anyModal = confirmRemove || confirmReset || pauseOpen || testOpen || logsOpen || qrOpen || proxyOpen;
   useEffect(() => { onModalChange(anyModal); }, [anyModal, onModalChange]);
 
   const run = async (
@@ -110,7 +108,6 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
           <DropdownMenuLabel>Diagnostics</DropdownMenuLabel>
           <DropdownMenuItem onClick={handleHealth}><HeartPulse className="mr-2 h-4 w-4" /> Health check</DropdownMenuItem>
           <DropdownMenuItem onClick={() => setQrOpen(true)}><QrCode className="mr-2 h-4 w-4" /> Get QR / Reconnect</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setPairOpen(true)}><Smartphone className="mr-2 h-4 w-4" /> Generate Code</DropdownMenuItem>
           <DropdownMenuItem onClick={() => setLogsOpen(true)}><FileText className="mr-2 h-4 w-4" /> View logs</DropdownMenuItem>
           <DropdownMenuItem onClick={() => setTestOpen(true)}><Send className="mr-2 h-4 w-4" /> Test send</DropdownMenuItem>
 
@@ -192,7 +189,6 @@ export default function RowActions({ user, onChanged, onModalChange }: Props) {
       <TestSendDialog open={testOpen} onOpenChange={setTestOpen} userId={user.id} userName={user.name} />
       <LogsDialog open={logsOpen} onOpenChange={setLogsOpen} userId={user.id} userName={user.name} />
       <QrDialog open={qrOpen} onOpenChange={setQrOpen} userId={user.id} userName={user.name} onConnected={onChanged} />
-      <PairingCodeDialog open={pairOpen} onOpenChange={setPairOpen} userId={user.id} userName={user.name} onConnected={onChanged} />
       <ProxyDialog open={proxyOpen} onOpenChange={setProxyOpen} user={user} onChanged={onChanged} />
     </>
   );
