@@ -13,7 +13,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import EmergencyResetDialog from '@/components/gateway/EmergencyResetDialog';
-import PairingCodeDialog from '@/components/operations/dialogs/PairingCodeDialog';
 
 import { useQrPreparation } from '@/hooks/useQrPreparation';
 import { statusCache } from '@/services/statusCache';
@@ -77,7 +76,6 @@ export default function UserDetails() {
 
   // Reset dialog state
   const [showResetDialog, setShowResetDialog] = useState(false);
-  const [showPairDialog, setShowPairDialog] = useState(false);
 
   // Shared QR preparation flow (auto-provision on open/12s, 3s QR polling)
   const qr = useQrPreparation({
@@ -630,14 +628,6 @@ export default function UserDetails() {
                   <QrCode className="mr-2 h-5 w-5" />
                   Scan QR Code
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowPairDialog(true)}
-                  className="flex-1 h-12 text-base min-h-[44px]"
-                >
-                  <Smartphone className="mr-2 h-5 w-5" />
-                  Generate Code
-                </Button>
               </div>
             )}
 
@@ -811,16 +801,6 @@ export default function UserDetails() {
         />
       )}
 
-      {/* Pairing Code Dialog */}
-      {id && (
-        <PairingCodeDialog
-          open={showPairDialog}
-          onOpenChange={setShowPairDialog}
-          userId={id}
-          userName={user.name}
-          onConnected={() => { if (id) fetchStatus(id); }}
-        />
-      )}
     </div>
   );
 }
