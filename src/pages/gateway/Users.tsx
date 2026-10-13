@@ -28,7 +28,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { gatewayService } from '@/services/gateway';
 import { statusCache } from '@/services/statusCache';
 
-import { GatewayUser, getConnectionState, UserConnectionState } from '@/types/gateway';
+import { GatewayUser, getConnectionState, UserConnectionState, SessionStatus } from '@/types/gateway';
 import { Plus, Eye, Loader2, AlertCircle, RefreshCw, Trash2, Pencil, Check, X, Unplug, RotateCcw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
