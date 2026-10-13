@@ -37,8 +37,16 @@ export default function UsersCounterWidget({ className }: { className?: string }
     usersRef.current = list.users;
     recompute();
 
-    // Background top-up: only for users we don't have a fresh cache entry for.
-    // Capped concurrency keeps the gateway happy.
+    // Fast path: one call returns every account's status from the server cache.
+    const bulk = await gatewayService.getAllStatuses();
+    if (bulk.ok) {
+      statusCache.setMany(
+        Object.entries(bulk.statuses).map(([id, v]) => ({ id, status: (v.status || 'UNKNOWN') as SessionStatus })),
+      );
+      return;
+    }
+
+    // Fallback: per-account checks, only for entries without a fresh cache value.
     const stale = list.users.filter((u) => {
       const age = statusCache.getAge(u.id);
       return age === undefined || age > 90_000;
@@ -63,7 +71,7 @@ export default function UsersCounterWidget({ className }: { className?: string }
 
   useEffect(() => {
     fetchAndEnrich();
-    const id = setInterval(fetchAndEnrich, 120_000);
+    const id = setInterval(fetchAndEnrich, 30_000);
     const unsub = statusCache.subscribe(recompute);
     return () => {
       clearInterval(id);

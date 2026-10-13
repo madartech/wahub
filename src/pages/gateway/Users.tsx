@@ -436,6 +436,25 @@ export default function Users() {
     setIsLoading(false);
 
     void (async () => {
+      // Fast path: all statuses in one call from the server cache.
+      const bulk = await gatewayService.getAllStatuses();
+      if (currentFetchId !== fetchIdRef.current) return;
+      if (bulk.ok) {
+        statusCache.setMany(
+          Object.entries(bulk.statuses).map(([id, v]) => ({ id, status: (v.status || 'UNKNOWN') as SessionStatus })),
+        );
+        setUsers((prev) =>
+          prev.map((u) => {
+            const b = bulk.statuses[u.id];
+            if (!b) return u;
+            const phone = b.me?.id || u.phoneNumber;
+            saveLastPhone(u.id, phone);
+            return { ...u, sessionStatus: statusCache.get(u.id) ?? u.sessionStatus, phoneNumber: phone, me: b.me ?? u.me };
+          }),
+        );
+        return;
+      }
+
       const usersToFetch = [...result.users];
       const concurrency = 4;
       let index = 0;
@@ -451,8 +470,8 @@ export default function Users() {
               
               if (currentFetchId !== fetchIdRef.current) return;
               
-              const newStatus = statusResult.session?.status || 'UNKNOWN';
-              statusCache.set(user.id, newStatus);
+              statusCache.set(user.id, statusResult.session?.status || 'UNKNOWN');
+              const newStatus = statusCache.get(user.id) || 'UNKNOWN';
               saveLastPhone(user.id, statusResult.phoneNumber || statusResult.me?.id);
               setUsers((prev) =>
                 prev.map((u) =>
